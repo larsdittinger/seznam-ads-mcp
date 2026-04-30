@@ -1,0 +1,10 @@
+from __future__ import annotations
+
+from mcp.server.fastmcp import FastMCP
+
+from sklik_mcp.core.client import SklikClient
+
+
+def register(mcp: FastMCP, client: SklikClient) -> None:
+    """Tool registration. Filled in a later task. Task 19 will add a FenixClient arg."""
+    return
