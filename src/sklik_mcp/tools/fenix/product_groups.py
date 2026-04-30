@@ -1,5 +1,11 @@
 """Fénix product group (skupiny produktů) tools."""
 
+# UNVERIFIED: The Fénix paths in this module (productGroups,
+# productGroups/{id}/bid) are best-effort guesses based on Fénix's documentation
+# conventions. They have NOT been verified against the live API yet. If a call
+# returns 404, consult api.sklik.cz/fenix/ and adjust the path string.
+# Tracked for v0.1.1.
+
 from __future__ import annotations
 
 from typing import Any

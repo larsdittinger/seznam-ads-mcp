@@ -1,5 +1,10 @@
 """Fénix shopping stats tool."""
 
+# UNVERIFIED: The Fénix path in this module (stats/shopping) is a best-effort
+# guess based on Fénix's documentation conventions. It has NOT been verified
+# against the live API yet. If a call returns 404, consult api.sklik.cz/fenix/
+# and adjust the path string. Tracked for v0.1.1.
+
 from __future__ import annotations
 
 from typing import Any, Literal

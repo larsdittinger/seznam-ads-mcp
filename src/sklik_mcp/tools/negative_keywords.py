@@ -1,5 +1,12 @@
 """Negative-keyword tools (vylučující klíčová slova) — campaign or group scope."""
 
+# UNVERIFIED: The Sklik method names in this module (campaigns.getNegativeKeywords,
+# groups.getNegativeKeywords, campaigns.addNegativeKeywords, groups.addNegativeKeywords,
+# campaigns.removeNegativeKeyword, groups.removeNegativeKeyword) are best-effort
+# guesses based on Sklik's documentation conventions. They have NOT been verified
+# against the live API yet. If a call returns 404, consult api.sklik.cz/drak/ and
+# adjust the method string. Tracked for v0.1.1.
+
 from __future__ import annotations
 
 from typing import Any, Literal

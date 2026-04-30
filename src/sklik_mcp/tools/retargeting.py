@@ -1,5 +1,11 @@
 """Retargeting tools (retargetingové seznamy) — list, create, update, remove."""
 
+# UNVERIFIED: The Sklik method names in this module (retargeting.list,
+# retargeting.create, retargeting.update, retargeting.remove) are best-effort
+# guesses based on Sklik's documentation conventions. They have NOT been verified
+# against the live API yet. If a call returns 404, consult api.sklik.cz/drak/ and
+# adjust the method string. Tracked for v0.1.1.
+
 from __future__ import annotations
 
 from typing import Any
