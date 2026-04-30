@@ -49,12 +49,18 @@ class SklikClient:
         self.session.active_user_id = user_id
 
     def call(self, method: str, *params: dict[str, Any]) -> dict[str, Any]:
-        """Make a Sklik JSON call. Auto-prepends the auth struct.
-
-        On 401 SessionError this will be augmented with retry in Task 7.
-        """
+        """Make a Sklik JSON call. Auto-prepends the auth struct. Retries once on 401."""
         if not self.session.is_authenticated:
             self.login()
+        try:
+            return self._call_once(method, *params)
+        except SessionError:
+            logger.info("Session expired on %s; re-logging in and retrying once", method)
+            self.session.clear()
+            self.login()
+            return self._call_once(method, *params)
+
+    def _call_once(self, method: str, *params: dict[str, Any]) -> dict[str, Any]:
         body = [self.session.auth_struct(), *params]
         return self._post(method, *body, raw_body=True)
 

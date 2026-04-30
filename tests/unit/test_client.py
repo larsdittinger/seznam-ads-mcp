@@ -79,3 +79,66 @@ def test_call_400_raises_argument_error(client):
     with pytest.raises(ArgumentError) as exc:
         client.call("campaigns.list", {})
     assert exc.value.details == ["x is required"]
+
+
+@responses.activate
+def test_call_retries_once_on_401(client):
+    # Login twice (initial + retry), real call returns 401 first then success
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "session": "sess-1"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "session": "sess-2"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/campaigns.list",
+        json={"status": 401, "statusMessage": "session expired"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/campaigns.list",
+        json={"status": 200, "campaigns": []},
+    )
+    out = client.call("campaigns.list", {})
+    assert out["status"] == 200
+
+
+@responses.activate
+def test_call_does_not_retry_twice_on_401(client):
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "session": "sess-1"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "session": "sess-2"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/campaigns.list",
+        json={"status": 401, "statusMessage": "session expired"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/campaigns.list",
+        json={"status": 401, "statusMessage": "still expired"},
+    )
+    with pytest.raises(SessionError):
+        client.call("campaigns.list", {})
+
+
+@responses.activate
+def test_call_includes_impersonation_user_id(client):
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "session": "sess-1"},
+    )
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/campaigns.list",
+        json={"status": 200, "campaigns": []},
+    )
+    client.set_active_account(99)
+    client.call("campaigns.list", {})
+    body = responses.calls[1].request.body
+    import json as _json
+    payload = _json.loads(body)
+    assert payload[0] == {"session": "sess-1", "userId": 99}
