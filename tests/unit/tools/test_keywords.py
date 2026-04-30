@@ -34,9 +34,17 @@ async def test_list_keywords_happy_path():
     assert args[0][1] == {}
 
 
-async def test_list_keywords_filters_by_group_and_status():
-    mcp, client = _setup({"status": 200, "keywords": [], "totalCount": 0})
-    await _invoke(
+async def test_list_keywords_filters_by_group_clientside_status():
+    mcp, client = _setup(
+        {
+            "status": 200,
+            "keywords": [
+                {"id": 1, "name": "boty", "status": "active"},
+                {"id": 2, "name": "boty hi", "status": "suspend"},
+            ],
+        }
+    )
+    out = await _invoke(
         mcp,
         "list_keywords",
         {"group_id": 9, "status": "active", "limit": 25},
@@ -45,9 +53,11 @@ async def test_list_keywords_filters_by_group_and_status():
     filt = args[0][1]
     # Sklik nests parent-entity filters: {"group": {"ids": [...]}}.
     assert filt["group"] == {"ids": [9]}
-    assert filt["status"] == "active"
+    # status is NOT sent on the wire — applied client-side.
+    assert "status" not in filt
     opts = args[0][2]
     assert opts["limit"] == 25
+    assert [k["id"] for k in out["keywords"]] == [1]
 
 
 async def test_get_keyword_filters_by_id():
@@ -74,8 +84,9 @@ async def test_add_keywords_sends_batch_with_match_types():
     )
     assert out["keyword_ids"] == [1, 2]
     body = client.call.call_args[0][1]
-    # Sklik wants the keyword text under "name", and matchType is broad/phrase/exact verbatim.
-    assert body[0] == {"groupId": 10, "name": "foto", "matchType": "exact", "maxCpc": 500}
+    # Sklik wants the keyword text under "name", matchType is broad/phrase/exact
+    # verbatim, and the bid field is `cpc` (not `maxCpc`).
+    assert body[0] == {"groupId": 10, "name": "foto", "matchType": "exact", "cpc": 500}
     assert body[1] == {"groupId": 10, "name": "obraz", "matchType": "phrase"}
 
 
@@ -102,16 +113,17 @@ async def test_update_keyword_sends_partial_fields():
     args = client.call.call_args
     assert args[0][0] == "keywords.update"
     body = args[0][1][0]
-    # 7 Kč → 700 haléřů
-    assert body == {"id": 11, "maxCpc": 700}
+    # 7 Kč → 700 haléřů, bid field is `cpc` not `maxCpc`.
+    assert body == {"id": 11, "cpc": 700}
 
 
-async def test_pause_keyword_sets_status_paused():
+async def test_pause_keyword_sets_status_suspend():
+    """Sklik wire status is 'suspend', not 'paused'."""
     mcp, client = _setup({"status": 200})
     await _invoke(mcp, "pause_keyword", {"keyword_id": 9})
     args = client.call.call_args
     assert args[0][0] == "keywords.update"
-    assert args[0][1] == [{"id": 9, "status": "paused"}]
+    assert args[0][1] == [{"id": 9, "status": "suspend"}]
 
 
 async def test_resume_keyword_sets_status_active():

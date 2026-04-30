@@ -39,20 +39,33 @@ async def test_list_campaigns_calls_correct_method():
     assert "offset" in args[0][2]
 
 
-async def test_list_campaigns_passes_filters():
-    mcp, client = _setup({"status": 200, "campaigns": [], "totalCount": 0})
-    await _invoke(
+async def test_list_campaigns_passes_filters_clientside():
+    """status_filter and name_contains are applied client-side; Sklik v5
+    doesn't accept them in the wire filter struct."""
+    mcp, client = _setup(
+        {
+            "status": 200,
+            "campaigns": [
+                {"id": 1, "name": "Foo letní", "status": "active"},
+                {"id": 2, "name": "Bar letní", "status": "suspend"},
+                {"id": 3, "name": "FOOzimní", "status": "active"},
+            ],
+        }
+    )
+    out = await _invoke(
         mcp,
         "list_campaigns",
         {"status_filter": "active", "name_contains": "foo", "limit": 50},
     )
     args = client.call.call_args
     assert args[0][0] == "campaigns.list"
-    filter_struct = args[0][1]
-    assert filter_struct["status"] == "active"
-    assert filter_struct["name"] == "foo"
+    # Wire filter struct is empty (or only has fields Sklik accepts).
+    assert args[0][1] == {}
     options = args[0][2]
     assert options["limit"] == 50
+    # Client-side filtering: only active+name-contains-foo (case-insensitive).
+    ids = [c["id"] for c in out["campaigns"]]
+    assert ids == [1, 3]
 
 
 async def test_get_campaign_filters_by_id():
@@ -66,18 +79,32 @@ async def test_get_campaign_filters_by_id():
 
 
 async def test_pause_campaign_sets_status():
-    mcp, client = _setup({"status": 200})
+    """pause uses Sklik wire status 'suspend' and includes the auto-fetched type."""
+    mcp = FastMCP("test")
+    client = MagicMock(spec=SklikClient)
+    # First call (campaigns.list) returns the type; second call (update) returns OK.
+    client.call.side_effect = [
+        {"status": 200, "campaigns": [{"id": 9, "type": "fulltext", "status": "active"}]},
+        {"status": 200},
+    ]
+    campaigns.register(mcp, client)
     await _invoke(mcp, "pause_campaign", {"campaign_id": 9})
-    args = client.call.call_args
-    assert args[0][0] == "campaigns.update"
-    assert args[0][1] == [{"id": 9, "status": "paused"}]
+    update_call = client.call.call_args  # last call
+    assert update_call[0][0] == "campaigns.update"
+    assert update_call[0][1] == [{"id": 9, "type": "fulltext", "status": "suspend"}]
 
 
 async def test_resume_campaign_sets_status_active():
-    mcp, client = _setup({"status": 200})
+    mcp = FastMCP("test")
+    client = MagicMock(spec=SklikClient)
+    client.call.side_effect = [
+        {"status": 200, "campaigns": [{"id": 9, "type": "context"}]},
+        {"status": 200},
+    ]
+    campaigns.register(mcp, client)
     await _invoke(mcp, "resume_campaign", {"campaign_id": 9})
-    args = client.call.call_args
-    assert args[0][1] == [{"id": 9, "status": "active"}]
+    update_call = client.call.call_args
+    assert update_call[0][1] == [{"id": 9, "type": "context", "status": "active"}]
 
 
 async def test_create_campaign_passes_fields():
@@ -85,7 +112,7 @@ async def test_create_campaign_passes_fields():
     out = await _invoke(
         mcp,
         "create_campaign",
-        {"name": "Q2 brand", "daily_budget_kc": 500, "currency": "CZK"},
+        {"name": "Q2 brand", "daily_budget_kc": 500, "campaign_type": "fulltext"},
     )
     assert out["campaign_id"] == 123
     args = client.call.call_args
@@ -94,14 +121,22 @@ async def test_create_campaign_passes_fields():
     assert body["name"] == "Q2 brand"
     # 500 Kč → 50000 haléřů
     assert body["dayBudget"] == 50_000
-    assert body["currency"] == "CZK"
+    # type is required by Sklik on create
+    assert body["type"] == "fulltext"
 
 
-async def test_update_campaign_sends_partial():
-    mcp, client = _setup({"status": 200})
+async def test_update_campaign_sends_partial_with_fetched_type():
+    mcp = FastMCP("test")
+    client = MagicMock(spec=SklikClient)
+    client.call.side_effect = [
+        {"status": 200, "campaigns": [{"id": 1, "type": "zbozi"}]},
+        {"status": 200},
+    ]
+    campaigns.register(mcp, client)
     await _invoke(mcp, "update_campaign", {"campaign_id": 1, "name": "renamed"})
     body = client.call.call_args[0][1][0]
-    assert body == {"id": 1, "name": "renamed"}
+    # campaigns.update demands `type`; we auto-fetch and inject it.
+    assert body == {"id": 1, "type": "zbozi", "name": "renamed"}
 
 
 async def test_remove_campaign():

@@ -1,4 +1,12 @@
-"""Ad group tools (sestavy) — list, get, create, update, pause/resume, remove."""
+"""Ad group tools (sestavy) — list, get, create, update, pause/resume, remove.
+
+Wire shape (verified live 2026-04-30):
+- groups.list filter accepts only `ids` and nested `campaign: {ids: [...]}`.
+  No status/name filters — apply client-side.
+- Bid field name is `cpc` (NOT `maxCpc`) on both create and update.
+- Status values are `active` | `suspend` only. Use `groups.remove` to
+  hard-remove.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +17,8 @@ from mcp.server.fastmcp import FastMCP
 from sklik_mcp.core.client import SklikClient
 from sklik_mcp.core.errors import with_sklik_error_handling
 
-GroupStatus = Literal["active", "paused", "removed"]
+PublicStatus = Literal["active", "paused"]
+_WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
@@ -17,18 +26,18 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     @with_sklik_error_handling
     def list_ad_groups(
         campaign_id: int | None = None,
-        status_filter: GroupStatus | None = None,
+        status_filter: PublicStatus | None = None,
         name_contains: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """List ad groups (seznam sestav) with optional filters.
+        """List ad groups (seznam sestav) with optional client-side filters.
 
         Args:
             campaign_id: Limit to ad groups in this campaign.
-            status_filter: Only return groups with this status (active/paused/removed).
-            name_contains: Substring match on group name.
-            limit: Max number of groups to return.
+            status_filter: Only return groups with this status (active/paused).
+            name_contains: Substring match on group name (case-insensitive).
+            limit: Max number of groups to fetch from Sklik per page.
             offset: Pagination offset.
 
         Returns:
@@ -36,18 +45,17 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         filt: dict[str, Any] = {}
         if campaign_id is not None:
-            # Sklik nests parent-entity filters: {"campaign": {"ids": [...]}}.
             filt["campaign"] = {"ids": [campaign_id]}
-        if status_filter is not None:
-            filt["status"] = status_filter
-        if name_contains is not None:
-            filt["name"] = name_contains
         opts = {"limit": limit, "offset": offset}
         resp = client.call("groups.list", filt, opts)
-        return {
-            "groups": resp.get("groups", []),
-            "total": resp.get("totalCount", 0),
-        }
+        groups = resp.get("groups", [])
+        if status_filter is not None:
+            target = _WIRE_STATUS[status_filter]
+            groups = [g for g in groups if g.get("status") == target]
+        if name_contains is not None:
+            needle = name_contains.lower()
+            groups = [g for g in groups if needle in (g.get("name", "").lower())]
+        return {"groups": groups, "total": len(groups)}
 
     @mcp.tool()
     @with_sklik_error_handling
@@ -81,7 +89,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         body: dict[str, Any] = {
             "campaignId": campaign_id,
             "name": name,
-            "maxCpc": max_cpc_kc * 100,  # haléře
+            "cpc": max_cpc_kc * 100,  # haléře — Sklik's group bid field is `cpc`
         }
         resp = client.call("groups.create", [body])
         ids = resp.get("groupIds") or []
@@ -93,7 +101,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         group_id: int,
         name: str | None = None,
         max_cpc_kc: int | None = None,
-        status: GroupStatus | None = None,
+        status: PublicStatus | None = None,
     ) -> dict[str, Any]:
         """Update fields on an existing ad group (only the supplied ones).
 
@@ -104,9 +112,9 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         if name is not None:
             body["name"] = name
         if max_cpc_kc is not None:
-            body["maxCpc"] = max_cpc_kc * 100
+            body["cpc"] = max_cpc_kc * 100
         if status is not None:
-            body["status"] = status
+            body["status"] = _WIRE_STATUS[status]
         client.call("groups.update", [body])
         return {"updated": True}
 
@@ -114,7 +122,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     @with_sklik_error_handling
     def pause_ad_group(group_id: int) -> dict[str, Any]:
         """Pause an ad group (pozastavit sestavu)."""
-        client.call("groups.update", [{"id": group_id, "status": "paused"}])
+        client.call("groups.update", [{"id": group_id, "status": "suspend"}])
         return {"paused": True, "group_id": group_id}
 
     @mcp.tool()

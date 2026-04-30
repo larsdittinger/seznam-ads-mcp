@@ -1,4 +1,13 @@
-"""Keyword tools (klíčová slova) — list, get, add (batch), update, pause/resume, remove."""
+"""Keyword tools (klíčová slova) — list, get, add (batch), update, pause/resume, remove.
+
+Wire shape (verified live 2026-04-30):
+- keywords.list filter accepts only `ids` and nested `group: {ids: [...]}`.
+  No status filter — apply client-side.
+- keywords.create field is `name` (NOT `keyword`); matchType is verbatim
+  "broad" / "phrase" / "exact".
+- Bid field on keywords is `cpc` (NOT `maxCpc`).
+- Status values are `active` | `suspend` only.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +19,9 @@ from typing_extensions import TypedDict
 from sklik_mcp.core.client import SklikClient
 from sklik_mcp.core.errors import with_sklik_error_handling
 
-KeywordStatus = Literal["active", "paused", "removed"]
+PublicStatus = Literal["active", "paused"]
 MatchType = Literal["broad", "phrase", "exact"]
-
-# Sklik v5 takes the public match-type names verbatim ("broad" / "phrase" / "exact").
-# (Earlier code remapped to "phraseMatch"/"exactMatch"; that was wrong — confirmed
-# via live schema probe on 2026-04-30.)
+_WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
 
 class KeywordInput(TypedDict, total=False):
@@ -27,7 +33,6 @@ class KeywordInput(TypedDict, total=False):
 
 
 def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict[str, Any]:
-    # Sklik wants the keyword text under "name" (not "keyword").
     body: dict[str, Any] = {
         "groupId": group_id,
         "name": kw["keyword"],
@@ -35,7 +40,7 @@ def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict[str, Any]:
     }
     max_cpc = kw.get("max_cpc_kc")
     if max_cpc is not None:
-        body["maxCpc"] = max_cpc * 100  # Kč → haléře
+        body["cpc"] = max_cpc * 100  # Kč → haléře
     return body
 
 
@@ -44,16 +49,16 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     @with_sklik_error_handling
     def list_keywords(
         group_id: int | None = None,
-        status: KeywordStatus | None = None,
+        status: PublicStatus | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """List keywords (seznam klíčových slov) with optional filters.
+        """List keywords (seznam klíčových slov) with optional client-side filters.
 
         Args:
             group_id: Limit to keywords in this ad group.
-            status: Only return keywords with this status (active/paused/removed).
-            limit: Max number of keywords to return.
+            status: Only return keywords with this status (active/paused).
+            limit: Max number of keywords to fetch per page.
             offset: Pagination offset.
 
         Returns:
@@ -61,16 +66,14 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         filt: dict[str, Any] = {}
         if group_id is not None:
-            # Sklik nests parent-entity filters: {"group": {"ids": [...]}}.
             filt["group"] = {"ids": [group_id]}
-        if status is not None:
-            filt["status"] = status
         opts = {"limit": limit, "offset": offset}
         resp = client.call("keywords.list", filt, opts)
-        return {
-            "keywords": resp.get("keywords", []),
-            "total": resp.get("totalCount", 0),
-        }
+        keywords = resp.get("keywords", [])
+        if status is not None:
+            target = _WIRE_STATUS[status]
+            keywords = [k for k in keywords if k.get("status") == target]
+        return {"keywords": keywords, "total": len(keywords)}
 
     @mcp.tool()
     @with_sklik_error_handling
@@ -93,7 +96,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
             group_id: Parent ad group ID applied to every row.
             keywords: List of {keyword, match_type, max_cpc_kc?} structs. `match_type`
                 must be one of "broad", "phrase", "exact". `max_cpc_kc` is in Kč
-                (will be converted to haléře internally) — pass `None` to omit.
+                (converted to haléře internally) — omit to inherit the group's bid.
 
         Returns:
             {"keyword_ids": [int, ...]}
@@ -107,23 +110,23 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def update_keyword(
         keyword_id: int,
         max_cpc_kc: int | None = None,
-        status: KeywordStatus | None = None,
+        status: PublicStatus | None = None,
     ) -> dict[str, Any]:
         """Update fields on an existing keyword (only the supplied ones).
 
         Args:
             keyword_id: Target keyword ID.
             max_cpc_kc: New max CPC in Kč (converted to haléře).
-            status: New status (active/paused/removed).
+            status: New status (active/paused).
 
         Returns:
             {"updated": true}
         """
         body: dict[str, Any] = {"id": keyword_id}
         if max_cpc_kc is not None:
-            body["maxCpc"] = max_cpc_kc * 100
+            body["cpc"] = max_cpc_kc * 100
         if status is not None:
-            body["status"] = status
+            body["status"] = _WIRE_STATUS[status]
         client.call("keywords.update", [body])
         return {"updated": True}
 
@@ -131,7 +134,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     @with_sklik_error_handling
     def pause_keyword(keyword_id: int) -> dict[str, Any]:
         """Pause a keyword (pozastavit klíčové slovo)."""
-        client.call("keywords.update", [{"id": keyword_id, "status": "paused"}])
+        client.call("keywords.update", [{"id": keyword_id, "status": "suspend"}])
         return {"paused": True, "keyword_id": keyword_id}
 
     @mcp.tool()

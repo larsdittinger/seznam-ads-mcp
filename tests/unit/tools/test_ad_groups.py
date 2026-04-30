@@ -44,19 +44,31 @@ async def test_list_ad_groups_filters_by_campaign():
     assert filter_struct == {"campaign": {"ids": [5]}}
 
 
-async def test_list_ad_groups_passes_filters():
-    mcp, client = _setup({"status": 200, "groups": [], "totalCount": 0})
-    await _invoke(
+async def test_list_ad_groups_passes_filters_clientside():
+    mcp, client = _setup(
+        {
+            "status": 200,
+            "groups": [
+                {"id": 1, "name": "Foo letní", "status": "active"},
+                {"id": 2, "name": "Bar letní", "status": "active"},
+                {"id": 3, "name": "Foo zimní", "status": "suspend"},
+            ],
+        }
+    )
+    out = await _invoke(
         mcp,
         "list_ad_groups",
         {"status_filter": "active", "name_contains": "foo", "limit": 50},
     )
     args = client.call.call_args
+    # Filter struct only has parent-id filter (or nothing); status/name applied client-side.
     filter_struct = args[0][1]
-    assert filter_struct["status"] == "active"
-    assert filter_struct["name"] == "foo"
+    assert "status" not in filter_struct
+    assert "name" not in filter_struct
     options = args[0][2]
     assert options["limit"] == 50
+    ids = [g["id"] for g in out["groups"]]
+    assert ids == [1]
 
 
 async def test_get_ad_group_filters_by_id():
@@ -68,12 +80,13 @@ async def test_get_ad_group_filters_by_id():
     assert args[0][1]["ids"] == [7]
 
 
-async def test_pause_ad_group_sets_status():
+async def test_pause_ad_group_sets_status_suspend():
+    """Sklik wire status is 'suspend', not 'paused'."""
     mcp, client = _setup({"status": 200})
     await _invoke(mcp, "pause_ad_group", {"group_id": 9})
     args = client.call.call_args
     assert args[0][0] == "groups.update"
-    assert args[0][1] == [{"id": 9, "status": "paused"}]
+    assert args[0][1] == [{"id": 9, "status": "suspend"}]
 
 
 async def test_resume_ad_group_sets_status_active():
@@ -96,8 +109,8 @@ async def test_create_ad_group_passes_fields():
     body = args[0][1][0]
     assert body["campaignId"] == 11
     assert body["name"] == "brand-cz"
-    # 4 Kč → 400 haléřů
-    assert body["maxCpc"] == 400
+    # 4 Kč → 400 haléřů; Sklik's group bid field is `cpc` (not `maxCpc`)
+    assert body["cpc"] == 400
 
 
 async def test_update_ad_group_sends_partial():
