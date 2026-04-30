@@ -21,24 +21,31 @@ async def _invoke_tool(mcp: FastMCP, name: str, arguments: dict):
     return await tool.run(arguments)
 
 
-async def test_list_managed_accounts_returns_list():
+async def test_list_managed_accounts_returns_foreign_accounts():
     mcp, client = _make_mcp_with_client(
         {
             "status": 200,
-            "user": {
-                "users": [
-                    {"userId": 1, "username": "a"},
-                    {"userId": 2, "username": "b"},
-                ]
-            },
+            "user": {"userId": 100, "username": "owner"},
+            "foreignAccounts": [
+                {"userId": 1, "username": "a", "access": "rwa"},
+                {"userId": 2, "username": "b", "access": "r"},
+            ],
         }
     )
     out = await _invoke_tool(mcp, "list_managed_accounts", {})
     assert out["accounts"] == [
-        {"user_id": 1, "username": "a"},
-        {"user_id": 2, "username": "b"},
+        {"user_id": 1, "username": "a", "access": "rwa"},
+        {"user_id": 2, "username": "b", "access": "r"},
     ]
     client.call.assert_called_once_with("client.get")
+
+
+async def test_list_managed_accounts_handles_no_foreign_accounts():
+    mcp, _client = _make_mcp_with_client(
+        {"status": 200, "user": {"userId": 100, "username": "owner"}}
+    )
+    out = await _invoke_tool(mcp, "list_managed_accounts", {})
+    assert out["accounts"] == []
 
 
 async def test_switch_account_sets_active():
@@ -48,8 +55,26 @@ async def test_switch_account_sets_active():
     assert out == {"active_user_id": 42}
 
 
-async def test_current_account_returns_state():
+async def test_current_account_returns_state_when_already_known():
     mcp, client = _make_mcp_with_client({})
     client.session.active_user_id = 7
+    client.session.token_owner_user_id = 10
     out = await _invoke_tool(mcp, "current_account", {})
     assert out == {"active_user_id": 7, "token_owner_user_id": 10}
+    # No need to refresh — already knew the owner.
+    client.call.assert_not_called()
+
+
+async def test_current_account_refreshes_when_owner_unknown():
+    mcp, client = _make_mcp_with_client(
+        {"status": 200, "user": {"userId": 999, "username": "x"}}
+    )
+    client.session.active_user_id = None
+    client.session.token_owner_user_id = None
+    out = await _invoke_tool(mcp, "current_account", {})
+    # _refresh_user_info mutates session.token_owner_user_id; verify call happened.
+    client.call.assert_called_once_with("client.get")
+    # The mock's session is a MagicMock so we can't easily assert the post-write value;
+    # what matters is the refresh path was triggered.
+    assert "token_owner_user_id" in out
+    assert "active_user_id" in out

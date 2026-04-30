@@ -10,20 +10,43 @@ from sklik_mcp.core.client import SklikClient
 from sklik_mcp.core.errors import with_sklik_error_handling
 
 
+def _refresh_user_info(client: SklikClient) -> dict[str, Any]:
+    """Call client.get to refresh token-owner identity + foreign accounts.
+
+    Side effect: sets `client.session.token_owner_user_id` from the response.
+    Sklik's login response doesn't carry userId, so this is the canonical way
+    to know who the token belongs to.
+    """
+    resp: dict[str, Any] = client.call("client.get")
+    user = resp.get("user") or {}
+    if "userId" in user:
+        client.session.token_owner_user_id = int(user["userId"])
+    return resp
+
+
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
     @with_sklik_error_handling
     def list_managed_accounts() -> dict[str, Any]:
         """List Sklik accounts the API token can manage (impersonate / převtělit).
 
+        Returns the foreignAccounts list — accounts the token owner has been
+        granted access to. Empty list = no impersonation; you operate as the
+        token owner only.
+
         Returns:
-            {"accounts": [{"user_id": int, "username": str}]}
+            {"accounts": [{"user_id": int, "username": str, "access": str}]}
         """
-        resp = client.call("client.get")
-        users = (resp.get("user") or {}).get("users") or []
+        resp = _refresh_user_info(client)
+        foreign = resp.get("foreignAccounts") or []
         return {
             "accounts": [
-                {"user_id": int(u["userId"]), "username": u.get("username", "")} for u in users
+                {
+                    "user_id": int(u["userId"]),
+                    "username": u.get("username", ""),
+                    "access": u.get("access", ""),
+                }
+                for u in foreign
             ]
         }
 
@@ -47,9 +70,14 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def current_account() -> dict[str, Any]:
         """Show which account is currently active (used for all calls).
 
+        Lazily fetches token-owner identity via client.get if not yet known
+        (login response doesn't carry userId).
+
         Returns:
             {"active_user_id": int | null, "token_owner_user_id": int | null}
         """
+        if client.session.token_owner_user_id is None:
+            _refresh_user_info(client)
         return {
             "active_user_id": client.session.active_user_id,
             "token_owner_user_id": client.session.token_owner_user_id,
