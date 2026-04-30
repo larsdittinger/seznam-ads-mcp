@@ -6,6 +6,7 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.formatting import add_kc_field
 
 Entity = Literal["campaign", "group", "ad", "keyword"]
 Granularity = Literal["hourly", "daily", "weekly", "monthly", "total"]
@@ -16,14 +17,6 @@ _STATS_METHOD: dict[str, str] = {
     "ad": "ads.stats",
     "keyword": "keywords.stats",
 }
-
-
-def _add_kc(item: dict) -> dict:
-    """Augment a stats row with a Kč-formatted spend (haléře / 100)."""
-    out = dict(item)
-    if "spend" in out and isinstance(out["spend"], (int, float)):
-        out["spend_kc"] = out["spend"] / 100
-    return out
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
@@ -58,7 +51,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         resp = client.call(method, filt)
         report = resp.get("report", [])
         for row in report:
-            row["stats"] = [_add_kc(s) for s in row.get("stats", [])]
+            row["stats"] = [add_kc_field(s) for s in row.get("stats", [])]
         return {"report": report}
 
     @mcp.tool()
@@ -74,4 +67,4 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         resp = client.call("client.stats", {"dateFrom": date_from, "dateTo": date_to})
         stats = resp.get("stats", {})
-        return _add_kc(stats)
+        return add_kc_field(stats)

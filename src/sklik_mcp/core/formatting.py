@@ -19,3 +19,16 @@ def parse_date(s: str | date | datetime) -> date:
     if isinstance(s, date):
         return s
     return date.fromisoformat(s)
+
+
+def add_kc_field(item: dict, source: str = "spend") -> dict:
+    """Augment a stats row with a Kč-formatted field (haléře / 100).
+
+    Returns a shallow copy of `item` with `{source}_kc` added when `source`
+    holds an int/float. Used by stats / conversions / any money report.
+    """
+    out = dict(item)
+    val = out.get(source)
+    if isinstance(val, (int, float)):
+        out[f"{source}_kc"] = val / 100
+    return out
