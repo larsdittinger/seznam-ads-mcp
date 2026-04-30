@@ -22,6 +22,24 @@ def test_login_stores_session(client):
 
 
 @responses.activate
+def test_login_body_is_json_array_with_token_struct(client):
+    """Sklik's JSON endpoint expects every call's body to be a positional-args array.
+
+    The login struct must be wrapped in a list, not sent bare.
+    """
+    responses.post(
+        "https://api.sklik.cz/drak/json/v5/client.loginByToken",
+        json={"status": 200, "statusMessage": "OK", "session": "sess-xyz"},
+    )
+    client.login()
+    import json as _json
+
+    body = responses.calls[0].request.body
+    payload = _json.loads(body)
+    assert payload == [{"token": "test-token"}]
+
+
+@responses.activate
 def test_login_failure_raises(client):
     responses.post(
         "https://api.sklik.cz/drak/json/v5/client.loginByToken",

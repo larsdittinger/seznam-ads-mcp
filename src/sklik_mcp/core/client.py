@@ -35,7 +35,11 @@ class SklikClient:
         )
 
     def login(self) -> None:
-        """POST /client.loginByToken; store the returned session string."""
+        """POST /client.loginByToken; store the returned session string.
+
+        The token struct is sent as a single positional argument — Sklik's JSON
+        endpoint always expects a JSON array of args (XML-RPC-encoded-as-JSON).
+        """
         resp = self._post("client.loginByToken", {"token": self.token})
         sess = resp.get("session")
         if not sess:
@@ -70,18 +74,13 @@ class SklikClient:
             return self._call_once(method, *params)
 
     def _call_once(self, method: str, *params: Any) -> dict[str, Any]:
-        body = [self.session.auth_struct(), *params]
-        return self._post(method, *body, raw_body=True)
+        return self._post(method, self.session.auth_struct(), *params)
 
-    def _post(self, method: str, *body: Any, raw_body: bool = False) -> dict[str, Any]:
+    def _post(self, method: str, *body: Any) -> dict[str, Any]:
         url = f"{self.endpoint}/{method}"
-        # For login, the body is a single struct; for other calls it's an array of structs.
-        payload: list[Any] | dict[str, Any]
-        if raw_body:  # noqa: SIM108 — nested-ternary form is less readable here
-            payload = list(body)
-        else:
-            # login-style: single struct
-            payload = body[0] if len(body) == 1 else list(body)
+        # Sklik's JSON endpoint is XML-RPC-over-JSON: every method call expects
+        # a positional-args array. Single-struct calls (login) are still wrapped.
+        payload: list[Any] = list(body)
         logger.debug("POST %s payload=%s", url, payload)
         try:
             r = self._http.post(url, json=payload, timeout=self.timeout_s)
