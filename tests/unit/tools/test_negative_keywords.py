@@ -18,74 +18,58 @@ async def _invoke(mcp, name, args):
     return await mcp._tool_manager._tools[name].run(args)
 
 
-async def test_list_negative_keywords_campaign_scope():
-    mcp, client = _setup({"status": 200, "negativeKeywords": []})
-    await _invoke(mcp, "list_negative_keywords", {"scope": "campaign", "scope_id": 5})
-    assert client.call.call_args[0][0] == "campaigns.getNegativeKeywords"
-    assert client.call.call_args[0][1] == {"id": 5}
-
-
-async def test_list_negative_keywords_group_scope():
-    mcp, client = _setup({"status": 200, "negativeKeywords": []})
-    await _invoke(mcp, "list_negative_keywords", {"scope": "group", "scope_id": 5})
-    assert client.call.call_args[0][0] == "groups.getNegativeKeywords"
-    assert client.call.call_args[0][1] == {"id": 5}
-
-
-async def test_list_negative_keywords_returns_data():
-    mcp, _client = _setup(
+async def test_set_campaign_negative_keywords_replaces_full_list():
+    mcp, client = _setup({"status": 200})
+    out = await _invoke(
+        mcp,
+        "set_campaign_negative_keywords",
         {
-            "status": 200,
-            "negativeKeywords": [{"id": 1, "keyword": "zdarma"}],
-        }
+            "campaign_id": 7,
+            "campaign_type": "fulltext",
+            "keywords": [
+                {"name": "zdarma", "match_type": "broad"},
+                {"name": "levně", "match_type": "exact"},
+            ],
+        },
     )
-    out = await _invoke(mcp, "list_negative_keywords", {"scope": "campaign", "scope_id": 5})
-    assert out["negative_keywords"][0]["keyword"] == "zdarma"
-
-
-async def test_add_negative_keywords_campaign_scope():
-    mcp, client = _setup({"status": 200, "negativeKeywordIds": [11, 12]})
-    out = await _invoke(
-        mcp,
-        "add_negative_keywords",
-        {"scope": "campaign", "scope_id": 7, "keywords": ["zdarma", "diy"]},
-    )
-    assert out["added"] == 2
-    assert out["ids"] == [11, 12]
+    assert out == {"updated": True, "count": 2}
     args = client.call.call_args
-    assert args[0][0] == "campaigns.addNegativeKeywords"
-    assert args[0][1] == {"id": 7}
-    assert args[0][2] == [{"keyword": "zdarma"}, {"keyword": "diy"}]
+    assert args[0][0] == "campaigns.update"
+    # campaigns.update expects a list of update structs.
+    body = args[0][1]
+    assert isinstance(body, list) and len(body) == 1
+    update = body[0]
+    assert update["id"] == 7
+    assert update["type"] == "fulltext"
+    # match_type values map to negativeBroad / negativePhrase / negativeExact.
+    assert update["negativeKeywords"] == [
+        {"name": "zdarma", "matchType": "negativeBroad"},
+        {"name": "levně", "matchType": "negativeExact"},
+    ]
 
 
-async def test_add_negative_keywords_group_scope_routes_correctly():
-    mcp, client = _setup({"status": 200, "negativeKeywordIds": [99]})
-    await _invoke(
-        mcp,
-        "add_negative_keywords",
-        {"scope": "group", "scope_id": 3, "keywords": ["foo"]},
-    )
-    assert client.call.call_args[0][0] == "groups.addNegativeKeywords"
-
-
-async def test_remove_negative_keyword_campaign_scope():
+async def test_set_campaign_negative_keywords_empty_list_clears():
     mcp, client = _setup({"status": 200})
     out = await _invoke(
         mcp,
-        "remove_negative_keyword",
-        {"scope": "campaign", "scope_id": 5, "negative_keyword_id": 42},
+        "set_campaign_negative_keywords",
+        {"campaign_id": 7, "campaign_type": "context", "keywords": []},
     )
-    assert out == {"removed": True}
-    args = client.call.call_args
-    assert args[0][0] == "campaigns.removeNegativeKeyword"
-    assert args[0][1] == {"id": 5, "negativeKeywordId": 42}
+    assert out == {"updated": True, "count": 0}
+    body = client.call.call_args[0][1]
+    assert body[0]["negativeKeywords"] == []
 
 
-async def test_remove_negative_keyword_group_scope():
+async def test_set_campaign_negative_keywords_default_match_type_is_broad():
     mcp, client = _setup({"status": 200})
     await _invoke(
         mcp,
-        "remove_negative_keyword",
-        {"scope": "group", "scope_id": 5, "negative_keyword_id": 42},
+        "set_campaign_negative_keywords",
+        {
+            "campaign_id": 7,
+            "campaign_type": "fulltext",
+            "keywords": [{"name": "ahoj"}],  # no match_type → default broad
+        },
     )
-    assert client.call.call_args[0][0] == "groups.removeNegativeKeyword"
+    body = client.call.call_args[0][1]
+    assert body[0]["negativeKeywords"] == [{"name": "ahoj", "matchType": "negativeBroad"}]

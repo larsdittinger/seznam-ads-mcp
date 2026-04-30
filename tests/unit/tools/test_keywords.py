@@ -74,8 +74,9 @@ async def test_add_keywords_sends_batch_with_match_types():
     )
     assert out["keyword_ids"] == [1, 2]
     body = client.call.call_args[0][1]
-    assert body[0] == {"groupId": 10, "keyword": "foto", "matchType": "exactMatch", "maxCpc": 500}
-    assert body[1] == {"groupId": 10, "keyword": "obraz", "matchType": "phraseMatch"}
+    # Sklik wants the keyword text under "name", and matchType is broad/phrase/exact verbatim.
+    assert body[0] == {"groupId": 10, "name": "foto", "matchType": "exact", "maxCpc": 500}
+    assert body[1] == {"groupId": 10, "name": "obraz", "matchType": "phrase"}
 
 
 async def test_add_keywords_uses_correct_method():

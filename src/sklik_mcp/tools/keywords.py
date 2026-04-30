@@ -13,12 +13,9 @@ from sklik_mcp.core.errors import with_sklik_error_handling
 KeywordStatus = Literal["active", "paused", "removed"]
 MatchType = Literal["broad", "phrase", "exact"]
 
-# Sklik wire-level match types (its API uses "broad" / "phraseMatch" / "exactMatch")
-_SKLIK_MATCH: dict[str, str] = {
-    "broad": "broad",
-    "phrase": "phraseMatch",
-    "exact": "exactMatch",
-}
+# Sklik v5 takes the public match-type names verbatim ("broad" / "phrase" / "exact").
+# (Earlier code remapped to "phraseMatch"/"exactMatch"; that was wrong — confirmed
+# via live schema probe on 2026-04-30.)
 
 
 class KeywordInput(TypedDict, total=False):
@@ -30,10 +27,11 @@ class KeywordInput(TypedDict, total=False):
 
 
 def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict[str, Any]:
+    # Sklik wants the keyword text under "name" (not "keyword").
     body: dict[str, Any] = {
         "groupId": group_id,
-        "keyword": kw["keyword"],
-        "matchType": _SKLIK_MATCH[kw["match_type"]],
+        "name": kw["keyword"],
+        "matchType": kw["match_type"],
     }
     max_cpc = kw.get("max_cpc_kc")
     if max_cpc is not None:
