@@ -59,7 +59,8 @@ async def test_update_retargeting_list_partial_fields():
     )
     args = client.call.call_args
     assert args[0][0] == "retargeting.update"
-    assert args[0][1] == {"id": 11, "name": "nový název"}
+    # Sklik bulk-update convention: body wrapped in a list, matches update_campaign etc.
+    assert args[0][1] == [{"id": 11, "name": "nový název"}]
 
 
 async def test_update_retargeting_list_lifespan_only():
@@ -70,7 +71,7 @@ async def test_update_retargeting_list_lifespan_only():
         {"retargeting_id": 11, "membership_lifespan_days": 60},
     )
     body = client.call.call_args[0][1]
-    assert body == {"id": 11, "membershipLifespan": 60}
+    assert body == [{"id": 11, "membershipLifespan": 60}]
 
 
 async def test_remove_retargeting_list():

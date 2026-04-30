@@ -69,7 +69,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
             body["name"] = name
         if membership_lifespan_days is not None:
             body["membershipLifespan"] = membership_lifespan_days
-        client.call("retargeting.update", body)
+        # Sklik update_* methods are uniformly bulk: pass [body] like the others.
+        client.call("retargeting.update", [body])
         return {"updated": True}
 
     @mcp.tool()
