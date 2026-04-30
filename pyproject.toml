@@ -29,6 +29,7 @@ sklik-mcp = "sklik_mcp.server:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "responses>=0.25",
     "ruff>=0.5",
@@ -62,6 +63,7 @@ files = ["src/sklik_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
 markers = [
     "integration: integration tests requiring SKLIK_API_TOKEN_TEST env var",
 ]
