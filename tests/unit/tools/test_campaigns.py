@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import NotFoundError
 from sklik_mcp.tools import campaigns
 
 
@@ -106,3 +107,22 @@ async def test_remove_campaign():
     mcp, client = _setup({"status": 200})
     await _invoke(mcp, "remove_campaign", {"campaign_id": 5})
     assert client.call.call_args[0] == ("campaigns.remove", [5])
+
+
+async def test_tool_wraps_sklik_error_with_czech_hint():
+    """SklikError raised by the client should be turned into a structured dict
+    with a Czech-language `hint_cs`, not propagated as an exception."""
+    mcp = FastMCP("test")
+    client = MagicMock(spec=SklikClient)
+    client.call.side_effect = NotFoundError(
+        "Campaign 999 not found", status=404, details=["no such id"]
+    )
+    campaigns.register(mcp, client)
+    out = await _invoke(mcp, "get_campaign", {"campaign_id": 999})
+    assert out["error"] is True
+    assert out["error_type"] == "NotFoundError"
+    assert out["message"] == "Campaign 999 not found"
+    assert out["status"] == 404
+    assert out["details"] == ["no such id"]
+    # Czech hint must be present and mention the right thing
+    assert "neexistuje" in out["hint_cs"]

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 from sklik_mcp.core.formatting import add_kc_field
 
 Entity = Literal["campaign", "group", "ad", "keyword"]
@@ -22,6 +23,7 @@ _STATS_METHOD: dict[str, str] = {
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def get_stats(
         entity: Entity,
         entity_ids: list[int],
@@ -56,6 +58,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"report": report}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_account_overview(date_from: str, date_to: str) -> dict[str, Any]:
         """Account-level rollup (přehled celého účtu) for the given window.
 

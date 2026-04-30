@@ -7,10 +7,12 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_managed_accounts() -> dict[str, Any]:
         """List Sklik accounts the API token can manage (impersonate / převtělit).
 
@@ -26,6 +28,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
+    @with_sklik_error_handling
     def switch_account(user_id: int) -> dict[str, Any]:
         """Switch active Sklik account (převtělit se / impersonate).
 
@@ -40,6 +43,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"active_user_id": target}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def current_account() -> dict[str, Any]:
         """Show which account is currently active (used for all calls).
 

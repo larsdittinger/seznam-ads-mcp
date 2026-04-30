@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from functools import wraps
+from typing import Any, TypeVar
 
 
 class SklikError(Exception):
@@ -53,3 +55,42 @@ def error_for_status(status: int, message: str, details: Any) -> SklikError | No
         return None
     cls = _STATUS_MAP.get(status, SklikError)
     return cls(message, status=status, details=details)
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+_CZECH_HINTS: dict[type[SklikError], str] = {
+    SessionError: "Sklik API session vypršela nebo je neplatná. Zkontrolujte SKLIK_API_TOKEN.",
+    AccessError: (
+        "Nemáte oprávnění k tomuto účtu nebo zdroji. "
+        "Zkontrolujte aktivní účet (current_account) nebo oprávnění tokenu."
+    ),
+    NotFoundError: "Požadovaný objekt v Skliku neexistuje (možná smazán nebo špatné ID).",
+    ArgumentError: "Argumenty volání jsou neplatné. Detaily v poli 'errors'.",
+    InvalidDataError: "Data nejsou validní pro tuto operaci.",
+}
+
+
+def with_sklik_error_handling(func: F) -> F:
+    """Decorator: catch SklikError, return error dict with Czech hint + raw details.
+
+    MCP tools wrapped with this turn typed Sklik errors into a structured error
+    response the LLM can reason about, instead of propagating opaque exceptions.
+    """
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except SklikError as e:
+            hint = _CZECH_HINTS.get(type(e), "Sklik API vrátil chybu.")
+            return {
+                "error": True,
+                "error_type": type(e).__name__,
+                "message": str(e),
+                "status": e.status,
+                "details": e.details,
+                "hint_cs": hint,
+            }
+
+    return wrapper  # type: ignore[return-value]

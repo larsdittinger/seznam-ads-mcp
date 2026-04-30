@@ -7,12 +7,14 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 CampaignStatus = Literal["active", "paused", "removed"]
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_campaigns(
         status_filter: CampaignStatus | None = None,
         name_contains: str | None = None,
@@ -43,6 +45,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_campaign(campaign_id: int) -> dict[str, Any]:
         """Get a single campaign by ID.
 
@@ -54,6 +57,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"campaign": items[0] if items else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def create_campaign(
         name: str,
         daily_budget_kc: int,
@@ -87,6 +91,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"campaign_id": ids[0] if ids else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def update_campaign(
         campaign_id: int,
         name: str | None = None,
@@ -109,18 +114,21 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def pause_campaign(campaign_id: int) -> dict[str, Any]:
         """Pause a campaign (pozastavit kampaň)."""
         client.call("campaigns.update", [{"id": campaign_id, "status": "paused"}])
         return {"paused": True, "campaign_id": campaign_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def resume_campaign(campaign_id: int) -> dict[str, Any]:
         """Resume a paused campaign (znovu spustit kampaň)."""
         client.call("campaigns.update", [{"id": campaign_id, "status": "active"}])
         return {"resumed": True, "campaign_id": campaign_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_campaign(campaign_id: int) -> dict[str, Any]:
         """Remove (soft-delete) a campaign (smazat kampaň)."""
         client.call("campaigns.remove", [campaign_id])

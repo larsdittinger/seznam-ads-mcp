@@ -7,10 +7,12 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_retargeting_lists() -> dict[str, Any]:
         """List all retargeting lists (retargetingové seznamy) on the active account.
 
@@ -21,6 +23,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"retargeting_lists": resp.get("retargetingLists", [])}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def create_retargeting_list(
         name: str,
         membership_lifespan_days: int = 30,
@@ -39,6 +42,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"retargeting_id": resp.get("retargetingId")}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def update_retargeting_list(
         retargeting_id: int,
         name: str | None = None,
@@ -63,6 +67,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_retargeting_list(retargeting_id: int) -> dict[str, Any]:
         """Remove a retargeting list (smazat seznam)."""
         client.call("retargeting.remove", {"id": retargeting_id})

@@ -7,12 +7,14 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 GroupStatus = Literal["active", "paused", "removed"]
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_ad_groups(
         campaign_id: int | None = None,
         status_filter: GroupStatus | None = None,
@@ -47,6 +49,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_ad_group(group_id: int) -> dict[str, Any]:
         """Get a single ad group by ID.
 
@@ -58,6 +61,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"group": items[0] if items else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def create_ad_group(
         campaign_id: int,
         name: str,
@@ -83,6 +87,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"group_id": ids[0] if ids else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def update_ad_group(
         group_id: int,
         name: str | None = None,
@@ -105,18 +110,21 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def pause_ad_group(group_id: int) -> dict[str, Any]:
         """Pause an ad group (pozastavit sestavu)."""
         client.call("groups.update", [{"id": group_id, "status": "paused"}])
         return {"paused": True, "group_id": group_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def resume_ad_group(group_id: int) -> dict[str, Any]:
         """Resume a paused ad group (znovu spustit sestavu)."""
         client.call("groups.update", [{"id": group_id, "status": "active"}])
         return {"resumed": True, "group_id": group_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_ad_group(group_id: int) -> dict[str, Any]:
         """Remove (soft-delete) an ad group (smazat sestavu)."""
         client.call("groups.remove", [group_id])

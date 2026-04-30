@@ -7,12 +7,14 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 AdStatus = Literal["active", "paused", "removed"]
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_ads(
         group_id: int | None = None,
         status: AdStatus | None = None,
@@ -43,6 +45,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_ad(ad_id: int) -> dict[str, Any]:
         """Get a single ad by ID.
 
@@ -54,6 +57,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"ad": items[0] if items else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def create_text_ad(
         group_id: int,
         headline1: str,
@@ -94,6 +98,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"ad_id": ids[0] if ids else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def create_dynamic_ad(
         group_id: int,
         final_url: str,
@@ -124,6 +129,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"ad_id": ids[0] if ids else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def update_ad(
         ad_id: int,
         headline1: str | None = None,
@@ -158,18 +164,21 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def pause_ad(ad_id: int) -> dict[str, Any]:
         """Pause an ad (pozastavit inzerát)."""
         client.call("ads.update", [{"id": ad_id, "status": "paused"}])
         return {"paused": True, "ad_id": ad_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def resume_ad(ad_id: int) -> dict[str, Any]:
         """Resume a paused ad (znovu spustit inzerát)."""
         client.call("ads.update", [{"id": ad_id, "status": "active"}])
         return {"resumed": True, "ad_id": ad_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_ad(ad_id: int) -> dict[str, Any]:
         """Remove (soft-delete) an ad (smazat inzerát)."""
         client.call("ads.remove", [ad_id])

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 from sklik_mcp.tools.fenix.client import FenixClient
 
 
@@ -15,6 +16,7 @@ def register(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None
         return
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_shopping_stats(
         date_from: str,
         date_to: str,

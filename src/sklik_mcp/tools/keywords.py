@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from typing_extensions import TypedDict
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 KeywordStatus = Literal["active", "paused", "removed"]
 MatchType = Literal["broad", "phrase", "exact"]
@@ -42,6 +43,7 @@ def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict[str, Any]:
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_keywords(
         group_id: int | None = None,
         status: KeywordStatus | None = None,
@@ -72,6 +74,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_keyword(keyword_id: int) -> dict[str, Any]:
         """Get a single keyword by ID.
 
@@ -83,6 +86,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"keyword": items[0] if items else None}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def add_keywords(group_id: int, keywords: list[KeywordInput]) -> dict[str, Any]:
         """Add a batch of keywords (přidat klíčová slova) to an ad group.
 
@@ -100,6 +104,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"keyword_ids": resp.get("keywordIds") or []}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def update_keyword(
         keyword_id: int,
         max_cpc_kc: int | None = None,
@@ -124,18 +129,21 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def pause_keyword(keyword_id: int) -> dict[str, Any]:
         """Pause a keyword (pozastavit klíčové slovo)."""
         client.call("keywords.update", [{"id": keyword_id, "status": "paused"}])
         return {"paused": True, "keyword_id": keyword_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def resume_keyword(keyword_id: int) -> dict[str, Any]:
         """Resume a paused keyword (znovu spustit klíčové slovo)."""
         client.call("keywords.update", [{"id": keyword_id, "status": "active"}])
         return {"resumed": True, "keyword_id": keyword_id}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_keyword(keyword_id: int) -> dict[str, Any]:
         """Remove (soft-delete) a keyword (smazat klíčové slovo)."""
         client.call("keywords.remove", [keyword_id])

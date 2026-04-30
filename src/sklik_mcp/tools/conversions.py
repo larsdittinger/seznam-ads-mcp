@@ -7,11 +7,13 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 from sklik_mcp.core.formatting import add_kc_field
 
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_conversions() -> dict[str, Any]:
         """List all conversion definitions (konverze) on the active account.
 
@@ -22,6 +24,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"conversions": resp.get("conversions", [])}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def get_conversion_stats(
         conversion_id: int,
         date_from: str,

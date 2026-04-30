@@ -7,6 +7,7 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
+from sklik_mcp.core.errors import with_sklik_error_handling
 
 Scope = Literal["campaign", "group"]
 _PREFIX: dict[str, str] = {"campaign": "campaigns", "group": "groups"}
@@ -14,6 +15,7 @@ _PREFIX: dict[str, str] = {"campaign": "campaigns", "group": "groups"}
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
+    @with_sklik_error_handling
     def list_negative_keywords(scope: Scope, scope_id: int) -> dict[str, Any]:
         """List negative keywords (vylučující klíčová slova) for a campaign or group.
 
@@ -29,6 +31,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"negative_keywords": resp.get("negativeKeywords", [])}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def add_negative_keywords(scope: Scope, scope_id: int, keywords: list[str]) -> dict[str, Any]:
         """Add negative keywords to a campaign or group.
 
@@ -46,6 +49,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"added": len(keywords), "ids": resp.get("negativeKeywordIds", [])}
 
     @mcp.tool()
+    @with_sklik_error_handling
     def remove_negative_keyword(
         scope: Scope, scope_id: int, negative_keyword_id: int
     ) -> dict[str, Any]:
