@@ -1,4 +1,4 @@
-"""sklik-mcp entry point. Wires SklikClient + FastMCP and runs over stdio."""
+"""sklik-mcp entry point. Wires SklikClient + FenixClient + FastMCP and runs over stdio."""
 from __future__ import annotations
 
 import logging
@@ -8,6 +8,37 @@ from mcp.server.fastmcp import FastMCP
 
 from sklik_mcp.core.client import SklikClient
 from sklik_mcp.core.config import Settings
+from sklik_mcp.tools.fenix.client import FenixClient
+
+
+def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient) -> None:
+    from sklik_mcp.tools import (
+        accounts,
+        ad_groups,
+        ads,
+        campaigns,
+        conversions,
+        keywords,
+        negative_keywords,
+        retargeting,
+        stats,
+    )
+    from sklik_mcp.tools.fenix import product_groups, shopping_stats
+
+    for drak_module in (
+        accounts,
+        campaigns,
+        ad_groups,
+        ads,
+        keywords,
+        negative_keywords,
+        stats,
+        retargeting,
+        conversions,
+    ):
+        drak_module.register(mcp, client)
+    for fenix_module in (product_groups, shopping_stats):
+        fenix_module.register(mcp, client, fenix)
 
 
 def build_server() -> FastMCP:
@@ -22,26 +53,13 @@ def build_server() -> FastMCP:
         endpoint=settings.endpoint,
         timeout_s=settings.request_timeout_s,
     )
+    fenix = FenixClient(
+        token=settings.api_token,
+        endpoint=settings.fenix_endpoint,
+        timeout_s=settings.request_timeout_s,
+    )
     mcp = FastMCP("sklik-mcp")
-    # Tool modules will register themselves here in later tasks:
-    from sklik_mcp.tools import accounts, ad_groups, ads, campaigns, conversions, keywords
-    from sklik_mcp.tools import negative_keywords, retargeting, stats
-    from sklik_mcp.tools.fenix import product_groups, shopping_stats
-
-    for module in (
-        accounts,
-        campaigns,
-        ad_groups,
-        ads,
-        keywords,
-        negative_keywords,
-        stats,
-        retargeting,
-        conversions,
-        product_groups,
-        shopping_stats,
-    ):
-        module.register(mcp, client)
+    _register_all(mcp, client, fenix)
     return mcp
 
 
