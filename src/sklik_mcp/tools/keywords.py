@@ -53,7 +53,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """List keywords (seznam klíčových slov) with optional filters.
 
         Args:
-            group_id: Limit to keywords in this ad group (Sklik filter `groupIds`).
+            group_id: Limit to keywords in this ad group.
             status: Only return keywords with this status (active/paused/removed).
             limit: Max number of keywords to return.
             offset: Pagination offset.
@@ -63,7 +63,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         filt: dict[str, Any] = {}
         if group_id is not None:
-            filt["groupIds"] = [group_id]
+            # Sklik nests parent-entity filters: {"group": {"ids": [...]}}.
+            filt["group"] = {"ids": [group_id]}
         if status is not None:
             filt["status"] = status
         opts = {"limit": limit, "offset": offset}
@@ -81,7 +82,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"keyword": {...}} or {"keyword": null} if not found.
         """
-        resp = client.call("keywords.list", {"id": [keyword_id]}, {})
+        resp = client.call("keywords.list", {"ids": [keyword_id]}, {"limit": 1, "offset": 0})
         items = resp.get("keywords", [])
         return {"keyword": items[0] if items else None}
 

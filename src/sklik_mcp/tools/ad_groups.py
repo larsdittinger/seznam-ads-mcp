@@ -25,7 +25,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """List ad groups (seznam sestav) with optional filters.
 
         Args:
-            campaign_id: Limit to ad groups in this campaign (Sklik filter `campaignIds`).
+            campaign_id: Limit to ad groups in this campaign.
             status_filter: Only return groups with this status (active/paused/removed).
             name_contains: Substring match on group name.
             limit: Max number of groups to return.
@@ -36,7 +36,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         filt: dict[str, Any] = {}
         if campaign_id is not None:
-            filt["campaignIds"] = [campaign_id]
+            # Sklik nests parent-entity filters: {"campaign": {"ids": [...]}}.
+            filt["campaign"] = {"ids": [campaign_id]}
         if status_filter is not None:
             filt["status"] = status_filter
         if name_contains is not None:
@@ -56,7 +57,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"group": {...}} or {"group": null} if not found.
         """
-        resp = client.call("groups.list", {"id": [group_id]}, {})
+        resp = client.call("groups.list", {"ids": [group_id]}, {"limit": 1, "offset": 0})
         items = resp.get("groups", [])
         return {"group": items[0] if items else None}
 

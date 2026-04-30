@@ -52,7 +52,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"campaign": {...}} or {"campaign": null} if not found.
         """
-        resp = client.call("campaigns.list", {"id": [campaign_id]}, {})
+        # Sklik filters by id-list with the key "ids" (not "id").
+        resp = client.call("campaigns.list", {"ids": [campaign_id]}, {"limit": 1, "offset": 0})
         items = resp.get("campaigns", [])
         return {"campaign": items[0] if items else None}
 

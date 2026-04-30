@@ -61,7 +61,8 @@ async def test_get_campaign_filters_by_id():
     assert out["campaign"]["id"] == 7
     args = client.call.call_args
     assert args[0][0] == "campaigns.list"
-    assert args[0][1]["id"] == [7]
+    # Sklik filters by id with the key "ids" (plural list).
+    assert args[0][1]["ids"] == [7]
 
 
 async def test_pause_campaign_sets_status():

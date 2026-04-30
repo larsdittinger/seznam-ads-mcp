@@ -43,7 +43,8 @@ async def test_list_ads_filters_by_group_and_status():
     )
     args = client.call.call_args
     filt = args[0][1]
-    assert filt["groupIds"] == [9]
+    # Sklik nests parent-entity filters: {"group": {"ids": [...]}}.
+    assert filt["group"] == {"ids": [9]}
     assert filt["status"] == "active"
     opts = args[0][2]
     assert opts["limit"] == 25
@@ -55,7 +56,7 @@ async def test_get_ad_filters_by_id():
     assert out["ad"]["id"] == 7
     args = client.call.call_args
     assert args[0][0] == "ads.list"
-    assert args[0][1]["id"] == [7]
+    assert args[0][1]["ids"] == [7]
 
 
 async def test_create_text_ad_sends_correct_body():

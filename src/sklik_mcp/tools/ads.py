@@ -24,7 +24,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """List ads (seznam inzerátů) with optional filters.
 
         Args:
-            group_id: Limit to ads in this ad group (Sklik filter `groupIds`).
+            group_id: Limit to ads in this ad group.
             status: Only return ads with this status (active/paused/removed).
             limit: Max number of ads to return.
             offset: Pagination offset.
@@ -34,7 +34,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         filt: dict[str, Any] = {}
         if group_id is not None:
-            filt["groupIds"] = [group_id]
+            # Sklik nests parent-entity filters: {"group": {"ids": [...]}}.
+            filt["group"] = {"ids": [group_id]}
         if status is not None:
             filt["status"] = status
         opts = {"limit": limit, "offset": offset}
@@ -52,7 +53,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"ad": {...}} or {"ad": null} if not found.
         """
-        resp = client.call("ads.list", {"id": [ad_id]}, {})
+        resp = client.call("ads.list", {"ids": [ad_id]}, {"limit": 1, "offset": 0})
         items = resp.get("ads", [])
         return {"ad": items[0] if items else None}
 

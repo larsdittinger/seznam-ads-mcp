@@ -40,7 +40,8 @@ async def test_list_ad_groups_filters_by_campaign():
     args = client.call.call_args
     assert args[0][0] == "groups.list"
     filter_struct = args[0][1]
-    assert filter_struct == {"campaignIds": [5]}
+    # Sklik nests parent-entity filters: {"campaign": {"ids": [...]}}.
+    assert filter_struct == {"campaign": {"ids": [5]}}
 
 
 async def test_list_ad_groups_passes_filters():
@@ -64,7 +65,7 @@ async def test_get_ad_group_filters_by_id():
     assert out["group"]["id"] == 7
     args = client.call.call_args
     assert args[0][0] == "groups.list"
-    assert args[0][1]["id"] == [7]
+    assert args[0][1]["ids"] == [7]
 
 
 async def test_pause_ad_group_sets_status():
