@@ -1,7 +1,8 @@
 """Keyword tools (klíčová slova) — list, get, add (batch), update, pause/resume, remove."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from typing_extensions import TypedDict
@@ -27,14 +28,15 @@ class KeywordInput(TypedDict, total=False):
     max_cpc_kc: int | None
 
 
-def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict:
-    body: dict = {
+def _build_keyword_create(group_id: int, kw: KeywordInput) -> dict[str, Any]:
+    body: dict[str, Any] = {
         "groupId": group_id,
         "keyword": kw["keyword"],
         "matchType": _SKLIK_MATCH[kw["match_type"]],
     }
-    if kw.get("max_cpc_kc") is not None:
-        body["maxCpc"] = kw["max_cpc_kc"] * 100  # Kč → haléře
+    max_cpc = kw.get("max_cpc_kc")
+    if max_cpc is not None:
+        body["maxCpc"] = max_cpc * 100  # Kč → haléře
     return body
 
 
@@ -45,7 +47,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         status: KeywordStatus | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """List keywords (seznam klíčových slov) with optional filters.
 
         Args:
@@ -57,7 +59,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"keywords": [...], "total": int}
         """
-        filt: dict = {}
+        filt: dict[str, Any] = {}
         if group_id is not None:
             filt["groupIds"] = [group_id]
         if status is not None:
@@ -70,7 +72,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
-    def get_keyword(keyword_id: int) -> dict:
+    def get_keyword(keyword_id: int) -> dict[str, Any]:
         """Get a single keyword by ID.
 
         Returns:
@@ -81,7 +83,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"keyword": items[0] if items else None}
 
     @mcp.tool()
-    def add_keywords(group_id: int, keywords: list[KeywordInput]) -> dict:
+    def add_keywords(group_id: int, keywords: list[KeywordInput]) -> dict[str, Any]:
         """Add a batch of keywords (přidat klíčová slova) to an ad group.
 
         Args:
@@ -102,7 +104,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         keyword_id: int,
         max_cpc_kc: int | None = None,
         status: KeywordStatus | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update fields on an existing keyword (only the supplied ones).
 
         Args:
@@ -113,7 +115,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"updated": true}
         """
-        body: dict = {"id": keyword_id}
+        body: dict[str, Any] = {"id": keyword_id}
         if max_cpc_kc is not None:
             body["maxCpc"] = max_cpc_kc * 100
         if status is not None:
@@ -122,19 +124,19 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
-    def pause_keyword(keyword_id: int) -> dict:
+    def pause_keyword(keyword_id: int) -> dict[str, Any]:
         """Pause a keyword (pozastavit klíčové slovo)."""
         client.call("keywords.update", [{"id": keyword_id, "status": "paused"}])
         return {"paused": True, "keyword_id": keyword_id}
 
     @mcp.tool()
-    def resume_keyword(keyword_id: int) -> dict:
+    def resume_keyword(keyword_id: int) -> dict[str, Any]:
         """Resume a paused keyword (znovu spustit klíčové slovo)."""
         client.call("keywords.update", [{"id": keyword_id, "status": "active"}])
         return {"resumed": True, "keyword_id": keyword_id}
 
     @mcp.tool()
-    def remove_keyword(keyword_id: int) -> dict:
+    def remove_keyword(keyword_id: int) -> dict[str, Any]:
         """Remove (soft-delete) a keyword (smazat klíčové slovo)."""
         client.call("keywords.remove", [keyword_id])
         return {"removed": True, "keyword_id": keyword_id}

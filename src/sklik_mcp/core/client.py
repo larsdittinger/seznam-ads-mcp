@@ -1,4 +1,5 @@
 """Sklik API HTTP client over JSON endpoint."""
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,9 @@ class SklikClient:
         self.timeout_s = timeout_s
         self.session = SessionState()
         self._http = http or requests.Session()
-        self._http.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
+        self._http.headers.update(
+            {"Content-Type": "application/json", "Accept": "application/json"}
+        )
 
     def login(self) -> None:
         """POST /client.loginByToken; store the returned session string."""
@@ -48,8 +51,14 @@ class SklikClient:
         """Set or clear the impersonation target for subsequent calls."""
         self.session.active_user_id = user_id
 
-    def call(self, method: str, *params: dict[str, Any]) -> dict[str, Any]:
-        """Make a Sklik JSON call. Auto-prepends the auth struct. Retries once on 401."""
+    def call(self, method: str, *params: Any) -> dict[str, Any]:
+        """Make a Sklik JSON call. Auto-prepends the auth struct. Retries once on 401.
+
+        `params` is intentionally typed as `*Any`: Sklik's API takes a heterogeneous
+        list — a mix of dicts (filter/options structs) and lists (e.g. lists of
+        IDs for `*.remove`, lists of create-structs for `*.create`). We don't have
+        a tight type to model that, so `Any` is the correct call.
+        """
         if not self.session.is_authenticated:
             self.login()
         try:
@@ -60,15 +69,15 @@ class SklikClient:
             self.login()
             return self._call_once(method, *params)
 
-    def _call_once(self, method: str, *params: dict[str, Any]) -> dict[str, Any]:
+    def _call_once(self, method: str, *params: Any) -> dict[str, Any]:
         body = [self.session.auth_struct(), *params]
         return self._post(method, *body, raw_body=True)
 
-    def _post(self, method: str, *body: dict[str, Any], raw_body: bool = False) -> dict[str, Any]:
+    def _post(self, method: str, *body: Any, raw_body: bool = False) -> dict[str, Any]:
         url = f"{self.endpoint}/{method}"
         # For login, the body is a single struct; for other calls it's an array of structs.
-        payload: list[dict[str, Any]] | dict[str, Any]
-        if raw_body:
+        payload: list[Any] | dict[str, Any]
+        if raw_body:  # noqa: SIM108 — nested-ternary form is less readable here
             payload = list(body)
         else:
             # login-style: single struct
@@ -79,7 +88,7 @@ class SklikClient:
         except requests.RequestException as e:
             raise SklikError(f"HTTP error calling {method}: {e}") from e
         try:
-            data = r.json()
+            data: dict[str, Any] = r.json()
         except ValueError as e:
             raise SklikError(f"Non-JSON response from {method}: {r.text[:200]}") from e
         status = int(data.get("status", r.status_code))

@@ -60,6 +60,7 @@ def test_call_sends_auth_struct_first(client):
     assert len(responses.calls) == 2
     body = responses.calls[1].request.body
     import json as _json
+
     payload = _json.loads(body)
     # Sklik convention: first param is auth struct, rest follow
     assert payload[0] == {"session": "sess-xyz"}
@@ -140,5 +141,6 @@ def test_call_includes_impersonation_user_id(client):
     client.call("campaigns.list", {})
     body = responses.calls[1].request.body
     import json as _json
+
     payload = _json.loads(body)
     assert payload[0] == {"session": "sess-1", "userId": 99}

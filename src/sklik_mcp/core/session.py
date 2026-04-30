@@ -1,4 +1,5 @@
 """Session state for Sklik client — holds session token + impersonation target."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

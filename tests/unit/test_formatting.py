@@ -41,5 +41,5 @@ def test_add_kc_field_missing_source_is_noop():
 
 def test_add_kc_field_returns_copy():
     src = {"spend": 100}
-    out = add_kc_field(src)
+    add_kc_field(src)
     assert "spend_kc" not in src  # input untouched

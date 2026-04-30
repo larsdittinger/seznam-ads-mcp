@@ -1,7 +1,9 @@
 """Czech-friendly formatters for money, percentages, dates."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 
 def format_money_haler(haler: int) -> str:
@@ -21,7 +23,7 @@ def parse_date(s: str | date | datetime) -> date:
     return date.fromisoformat(s)
 
 
-def add_kc_field(item: dict, source: str = "spend") -> dict:
+def add_kc_field(item: dict[str, Any], source: str = "spend") -> dict[str, Any]:
     """Augment a stats row with a Kč-formatted field (haléře / 100).
 
     Returns a shallow copy of `item` with `{source}_kc` added when `source`

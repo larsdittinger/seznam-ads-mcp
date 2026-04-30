@@ -50,7 +50,7 @@ async def test_get_conversion_stats_passes_filter():
 
 
 async def test_get_conversion_stats_handles_missing_spend():
-    mcp, client = _setup({"status": 200, "stats": {"conversions": 5}})
+    mcp, _client = _setup({"status": 200, "stats": {"conversions": 5}})
     out = await _invoke(
         mcp,
         "get_conversion_stats",

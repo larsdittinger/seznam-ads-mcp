@@ -1,4 +1,5 @@
 """sklik-mcp entry point. Wires SklikClient + FenixClient + FastMCP and runs over stdio."""
+
 from __future__ import annotations
 
 import logging
@@ -42,7 +43,9 @@ def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient) -> None
 
 
 def build_server() -> FastMCP:
-    settings = Settings()
+    # api_token is loaded from env (SKLIK_API_TOKEN); pydantic-settings populates it
+    # at runtime, but mypy can't see that and flags it as a missing required arg.
+    settings = Settings()  # type: ignore[call-arg]
     logging.basicConfig(
         stream=sys.stderr,  # MUST be stderr — stdout is reserved for MCP JSON-RPC
         level=settings.log_level,

@@ -1,4 +1,5 @@
 """Sklik API error hierarchy and HTTP status mapping."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,5 +1,8 @@
 """Retargeting tools (retargetingové seznamy) — list, create, update, remove."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -8,7 +11,7 @@ from sklik_mcp.core.client import SklikClient
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
-    def list_retargeting_lists() -> dict:
+    def list_retargeting_lists() -> dict[str, Any]:
         """List all retargeting lists (retargetingové seznamy) on the active account.
 
         Returns:
@@ -21,7 +24,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def create_retargeting_list(
         name: str,
         membership_lifespan_days: int = 30,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a new retargeting list.
 
         Args:
@@ -40,7 +43,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         retargeting_id: int,
         name: str | None = None,
         membership_lifespan_days: int | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update fields on an existing retargeting list (only the supplied ones).
 
         Args:
@@ -51,7 +54,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"updated": true}
         """
-        body: dict = {"id": retargeting_id}
+        body: dict[str, Any] = {"id": retargeting_id}
         if name is not None:
             body["name"] = name
         if membership_lifespan_days is not None:
@@ -60,7 +63,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
-    def remove_retargeting_list(retargeting_id: int) -> dict:
+    def remove_retargeting_list(retargeting_id: int) -> dict[str, Any]:
         """Remove a retargeting list (smazat seznam)."""
         client.call("retargeting.remove", {"id": retargeting_id})
         return {"removed": True, "retargeting_id": retargeting_id}

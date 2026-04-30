@@ -33,7 +33,7 @@ async def test_list_negative_keywords_group_scope():
 
 
 async def test_list_negative_keywords_returns_data():
-    mcp, client = _setup(
+    mcp, _client = _setup(
         {
             "status": 200,
             "negativeKeywords": [{"id": 1, "keyword": "zdarma"}],

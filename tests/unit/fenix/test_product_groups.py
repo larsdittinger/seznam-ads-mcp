@@ -39,9 +39,7 @@ async def test_update_product_group_bid():
         {"product_group_id": 99, "max_cpc_kc": 5},
     )
     assert out["updated"] is True
-    fenix.post.assert_called_once_with(
-        "productGroups/99/bid", json={"maxCpc": 500}
-    )
+    fenix.post.assert_called_once_with("productGroups/99/bid", json={"maxCpc": 500})
 
 
 def test_register_noop_when_fenix_missing():

@@ -1,7 +1,8 @@
 """Ad tools (inzeráty) — list, get, create text/dynamic, update, pause/resume, remove."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -17,7 +18,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         status: AdStatus | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """List ads (seznam inzerátů) with optional filters.
 
         Args:
@@ -29,7 +30,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"ads": [...], "total": int}
         """
-        filt: dict = {}
+        filt: dict[str, Any] = {}
         if group_id is not None:
             filt["groupIds"] = [group_id]
         if status is not None:
@@ -42,7 +43,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
-    def get_ad(ad_id: int) -> dict:
+    def get_ad(ad_id: int) -> dict[str, Any]:
         """Get a single ad by ID.
 
         Returns:
@@ -61,7 +62,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         final_url: str,
         headline3: str | None = None,
         description2: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a text ad (textový inzerát) in the given ad group.
 
         Args:
@@ -76,7 +77,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"ad_id": int}
         """
-        body: dict = {
+        body: dict[str, Any] = {
             "type": "text",
             "groupId": group_id,
             "headline1": headline1,
@@ -97,7 +98,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         group_id: int,
         final_url: str,
         description1: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a dynamic ad (dynamický inzerát) in the given ad group.
 
         Dynamic ads have most fields auto-generated from the landing page.
@@ -111,7 +112,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"ad_id": int}
         """
-        body: dict = {
+        body: dict[str, Any] = {
             "type": "dynamic",
             "groupId": group_id,
             "finalUrl": final_url,
@@ -132,13 +133,13 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         description2: str | None = None,
         final_url: str | None = None,
         status: AdStatus | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update fields on an existing ad (only the supplied ones).
 
         Returns:
             {"updated": true}
         """
-        body: dict = {"id": ad_id}
+        body: dict[str, Any] = {"id": ad_id}
         if headline1 is not None:
             body["headline1"] = headline1
         if headline2 is not None:
@@ -157,19 +158,19 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
-    def pause_ad(ad_id: int) -> dict:
+    def pause_ad(ad_id: int) -> dict[str, Any]:
         """Pause an ad (pozastavit inzerát)."""
         client.call("ads.update", [{"id": ad_id, "status": "paused"}])
         return {"paused": True, "ad_id": ad_id}
 
     @mcp.tool()
-    def resume_ad(ad_id: int) -> dict:
+    def resume_ad(ad_id: int) -> dict[str, Any]:
         """Resume a paused ad (znovu spustit inzerát)."""
         client.call("ads.update", [{"id": ad_id, "status": "active"}])
         return {"resumed": True, "ad_id": ad_id}
 
     @mcp.tool()
-    def remove_ad(ad_id: int) -> dict:
+    def remove_ad(ad_id: int) -> dict[str, Any]:
         """Remove (soft-delete) an ad (smazat inzerát)."""
         client.call("ads.remove", [ad_id])
         return {"removed": True, "ad_id": ad_id}

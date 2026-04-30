@@ -1,7 +1,8 @@
 """Campaign-level tools (kampaně) — list, get, create, update, pause/resume, remove."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -17,7 +18,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         name_contains: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """List campaigns (seznam kampaní) with optional filters.
 
         Args:
@@ -29,7 +30,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"campaigns": [...], "total": int}
         """
-        filt: dict = {}
+        filt: dict[str, Any] = {}
         if status_filter is not None:
             filt["status"] = status_filter
         if name_contains is not None:
@@ -42,7 +43,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
-    def get_campaign(campaign_id: int) -> dict:
+    def get_campaign(campaign_id: int) -> dict[str, Any]:
         """Get a single campaign by ID.
 
         Returns:
@@ -59,7 +60,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         currency: str = "CZK",
         start_date: str | None = None,
         end_date: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a new campaign (vytvořit kampaň).
 
         Args:
@@ -72,7 +73,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"campaign_id": int}
         """
-        body: dict = {
+        body: dict[str, Any] = {
             "name": name,
             "dayBudget": daily_budget_kc * 100,  # haléře
             "currency": currency,
@@ -91,13 +92,13 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         name: str | None = None,
         daily_budget_kc: int | None = None,
         status: CampaignStatus | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update fields on an existing campaign (only the supplied ones).
 
         Returns:
             {"updated": true}
         """
-        body: dict = {"id": campaign_id}
+        body: dict[str, Any] = {"id": campaign_id}
         if name is not None:
             body["name"] = name
         if daily_budget_kc is not None:
@@ -108,19 +109,19 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
-    def pause_campaign(campaign_id: int) -> dict:
+    def pause_campaign(campaign_id: int) -> dict[str, Any]:
         """Pause a campaign (pozastavit kampaň)."""
         client.call("campaigns.update", [{"id": campaign_id, "status": "paused"}])
         return {"paused": True, "campaign_id": campaign_id}
 
     @mcp.tool()
-    def resume_campaign(campaign_id: int) -> dict:
+    def resume_campaign(campaign_id: int) -> dict[str, Any]:
         """Resume a paused campaign (znovu spustit kampaň)."""
         client.call("campaigns.update", [{"id": campaign_id, "status": "active"}])
         return {"resumed": True, "campaign_id": campaign_id}
 
     @mcp.tool()
-    def remove_campaign(campaign_id: int) -> dict:
+    def remove_campaign(campaign_id: int) -> dict[str, Any]:
         """Remove (soft-delete) a campaign (smazat kampaň)."""
         client.call("campaigns.remove", [campaign_id])
         return {"removed": True, "campaign_id": campaign_id}

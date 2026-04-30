@@ -1,5 +1,8 @@
 """Fénix product group (skupiny produktů) tools."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -7,14 +10,12 @@ from sklik_mcp.core.client import SklikClient
 from sklik_mcp.tools.fenix.client import FenixClient
 
 
-def register(
-    mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None
-) -> None:
+def register(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None) -> None:
     if fenix is None:
         return
 
     @mcp.tool()
-    def list_product_groups(campaign_id: int) -> dict:
+    def list_product_groups(campaign_id: int) -> dict[str, Any]:
         """List Fénix product groups (skupiny produktů) for a shopping campaign.
 
         Args:
@@ -27,7 +28,7 @@ def register(
         return {"product_groups": resp.get("items", [])}
 
     @mcp.tool()
-    def update_product_group_bid(product_group_id: int, max_cpc_kc: int) -> dict:
+    def update_product_group_bid(product_group_id: int, max_cpc_kc: int) -> dict[str, Any]:
         """Update max CPC bid (Kč) for a Fénix product group.
 
         Args:

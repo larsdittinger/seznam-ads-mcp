@@ -1,7 +1,8 @@
 """Stats tools (statistiky / přehled výkonu) — per-entity reports + account overview."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -27,7 +28,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         date_from: str,
         date_to: str,
         granularity: Granularity = "total",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get performance stats (statistiky) for a list of entities.
 
         Args:
@@ -55,7 +56,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"report": report}
 
     @mcp.tool()
-    def get_account_overview(date_from: str, date_to: str) -> dict:
+    def get_account_overview(date_from: str, date_to: str) -> dict[str, Any]:
         """Account-level rollup (přehled celého účtu) for the given window.
 
         Args:

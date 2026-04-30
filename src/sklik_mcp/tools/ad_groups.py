@@ -1,7 +1,8 @@
 """Ad group tools (sestavy) — list, get, create, update, pause/resume, remove."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -18,7 +19,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         name_contains: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """List ad groups (seznam sestav) with optional filters.
 
         Args:
@@ -31,7 +32,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"groups": [...], "total": int}
         """
-        filt: dict = {}
+        filt: dict[str, Any] = {}
         if campaign_id is not None:
             filt["campaignIds"] = [campaign_id]
         if status_filter is not None:
@@ -46,7 +47,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         }
 
     @mcp.tool()
-    def get_ad_group(group_id: int) -> dict:
+    def get_ad_group(group_id: int) -> dict[str, Any]:
         """Get a single ad group by ID.
 
         Returns:
@@ -61,7 +62,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         campaign_id: int,
         name: str,
         max_cpc_kc: int,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create a new ad group (vytvořit sestavu).
 
         Args:
@@ -72,7 +73,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"group_id": int}
         """
-        body: dict = {
+        body: dict[str, Any] = {
             "campaignId": campaign_id,
             "name": name,
             "maxCpc": max_cpc_kc * 100,  # haléře
@@ -87,13 +88,13 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         name: str | None = None,
         max_cpc_kc: int | None = None,
         status: GroupStatus | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update fields on an existing ad group (only the supplied ones).
 
         Returns:
             {"updated": true}
         """
-        body: dict = {"id": group_id}
+        body: dict[str, Any] = {"id": group_id}
         if name is not None:
             body["name"] = name
         if max_cpc_kc is not None:
@@ -104,19 +105,19 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"updated": True}
 
     @mcp.tool()
-    def pause_ad_group(group_id: int) -> dict:
+    def pause_ad_group(group_id: int) -> dict[str, Any]:
         """Pause an ad group (pozastavit sestavu)."""
         client.call("groups.update", [{"id": group_id, "status": "paused"}])
         return {"paused": True, "group_id": group_id}
 
     @mcp.tool()
-    def resume_ad_group(group_id: int) -> dict:
+    def resume_ad_group(group_id: int) -> dict[str, Any]:
         """Resume a paused ad group (znovu spustit sestavu)."""
         client.call("groups.update", [{"id": group_id, "status": "active"}])
         return {"resumed": True, "group_id": group_id}
 
     @mcp.tool()
-    def remove_ad_group(group_id: int) -> dict:
+    def remove_ad_group(group_id: int) -> dict[str, Any]:
         """Remove (soft-delete) an ad group (smazat sestavu)."""
         client.call("groups.remove", [group_id])
         return {"removed": True, "group_id": group_id}

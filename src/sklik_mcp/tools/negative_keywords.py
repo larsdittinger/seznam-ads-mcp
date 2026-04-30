@@ -1,7 +1,8 @@
 """Negative-keyword tools (vylučující klíčová slova) — campaign or group scope."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -13,7 +14,7 @@ _PREFIX: dict[str, str] = {"campaign": "campaigns", "group": "groups"}
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
-    def list_negative_keywords(scope: Scope, scope_id: int) -> dict:
+    def list_negative_keywords(scope: Scope, scope_id: int) -> dict[str, Any]:
         """List negative keywords (vylučující klíčová slova) for a campaign or group.
 
         Args:
@@ -28,9 +29,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         return {"negative_keywords": resp.get("negativeKeywords", [])}
 
     @mcp.tool()
-    def add_negative_keywords(
-        scope: Scope, scope_id: int, keywords: list[str]
-    ) -> dict:
+    def add_negative_keywords(scope: Scope, scope_id: int, keywords: list[str]) -> dict[str, Any]:
         """Add negative keywords to a campaign or group.
 
         Args:
@@ -49,7 +48,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
     def remove_negative_keyword(
         scope: Scope, scope_id: int, negative_keyword_id: int
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Remove one negative keyword from a campaign or group.
 
         Args:

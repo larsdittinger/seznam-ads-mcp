@@ -1,5 +1,8 @@
 """Conversion tools (konverze) — list defined conversions and fetch stats."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -9,7 +12,7 @@ from sklik_mcp.core.formatting import add_kc_field
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
-    def list_conversions() -> dict:
+    def list_conversions() -> dict[str, Any]:
         """List all conversion definitions (konverze) on the active account.
 
         Returns:
@@ -23,7 +26,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         conversion_id: int,
         date_from: str,
         date_to: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get conversion stats for a single conversion in a date window.
 
         Args:

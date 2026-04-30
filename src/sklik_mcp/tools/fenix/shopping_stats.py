@@ -1,7 +1,8 @@
 """Fénix shopping stats tool."""
+
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -9,9 +10,7 @@ from sklik_mcp.core.client import SklikClient
 from sklik_mcp.tools.fenix.client import FenixClient
 
 
-def register(
-    mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None
-) -> None:
+def register(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None) -> None:
     if fenix is None:
         return
 
@@ -20,7 +19,7 @@ def register(
         date_from: str,
         date_to: str,
         group_by: Literal["day", "campaign", "productGroup"] = "day",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Shopping (Fénix) performance stats.
 
         Args:
