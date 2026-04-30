@@ -101,7 +101,16 @@ uv run mypy
 
 ## Status
 
-Alpha. Drak coverage is solid; Fénix coverage is best-effort against sparse public docs and may need refinement against the live API.
+**Alpha (v0.1.0)** — first integration smoke against live Sklik API on **2026-04-30**.
+
+What's verified working: login, account selection, listing campaigns / ad groups / ads / keywords, account-level stats overview, retargeting lists, listing conversions.
+
+What's known broken or missing in v0.1.0:
+- **Per-entity stats** (campaigns/groups/ads/keywords) — Sklik uses an async report-query model we haven't implemented. Tracked for v0.2.
+- **Negative keywords** — guessed method names returned 404. Real ones TBD. Tracked for v0.1.1.
+- **Fénix (Seznam Nákupy)** — uses OAuth2 token exchange, not direct Bearer. Tracked for v0.1.2.
+
+See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.
 
 ## License
 

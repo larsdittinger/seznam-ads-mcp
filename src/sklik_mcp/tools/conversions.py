@@ -1,10 +1,9 @@
-"""Conversion tools (konverze) — list defined conversions and fetch stats."""
+"""Conversion tools (konverze) — list defined conversions and fetch stats.
 
-# UNVERIFIED: The Sklik method names in this module (conversions.list,
-# conversions.stats) are best-effort guesses based on Sklik's documentation
-# conventions. They have NOT been verified against the live API yet. If a call
-# returns 404, consult api.sklik.cz/drak/ and adjust the method string.
-# Tracked for v0.1.1.
+Verified 2026-04-30: `conversions.list` works (takes no args beyond auth).
+`conversions.stats` is UNVERIFIED — Sklik's stats follow an async report flow
+(conversions may use queries.readReport), tracked for v0.2.
+"""
 
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"conversions": [{"id": int, "name": str, ...}, ...]}
         """
-        resp = client.call("conversions.list", {})
+        resp = client.call("conversions.list")
         return {"conversions": resp.get("conversions", [])}
 
     @mcp.tool()

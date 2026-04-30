@@ -26,7 +26,8 @@ async def test_list_conversions_calls_correct_method():
         }
     )
     out = await _invoke(mcp, "list_conversions", {})
-    assert client.call.call_args[0][0] == "conversions.list"
+    # No extra args, just auth (auto-prepended by SklikClient.call)
+    assert client.call.call_args == (("conversions.list",), {})
     assert out["conversions"][0]["name"] == "objednávka"
 
 

@@ -22,11 +22,12 @@ async def test_list_retargeting_lists_calls_correct_method():
     mcp, client = _setup(
         {
             "status": 200,
-            "retargetingLists": [{"id": 1, "name": "vrátí se"}],
+            "lists": [{"id": 1, "name": "vrátí se"}],
         }
     )
     out = await _invoke(mcp, "list_retargeting_lists", {})
-    assert client.call.call_args[0][0] == "retargeting.list"
+    # No extra args, just auth (auto-prepended by SklikClient.call)
+    assert client.call.call_args == (("retargeting.lists.list",), {})
     assert out["retargeting_lists"][0]["id"] == 1
 
 
@@ -34,7 +35,7 @@ async def test_create_retargeting_list_default_lifespan():
     mcp, client = _setup({"status": 200, "retargetingId": 42})
     out = await _invoke(mcp, "create_retargeting_list", {"name": "návštěvníci"})
     args = client.call.call_args
-    assert args[0][0] == "retargeting.create"
+    assert args[0][0] == "retargeting.lists.create"
     assert args[0][1] == {"name": "návštěvníci", "membershipLifespan": 30}
     assert out["retargeting_id"] == 42
 
@@ -58,7 +59,7 @@ async def test_update_retargeting_list_partial_fields():
         {"retargeting_id": 11, "name": "nový název"},
     )
     args = client.call.call_args
-    assert args[0][0] == "retargeting.update"
+    assert args[0][0] == "retargeting.lists.update"
     # Sklik bulk-update convention: body wrapped in a list, matches update_campaign etc.
     assert args[0][1] == [{"id": 11, "name": "nový název"}]
 
@@ -78,5 +79,5 @@ async def test_remove_retargeting_list():
     mcp, client = _setup({"status": 200})
     await _invoke(mcp, "remove_retargeting_list", {"retargeting_id": 5})
     args = client.call.call_args
-    assert args[0][0] == "retargeting.remove"
+    assert args[0][0] == "retargeting.lists.remove"
     assert args[0][1] == {"id": 5}

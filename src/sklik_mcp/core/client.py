@@ -37,10 +37,10 @@ class SklikClient:
     def login(self) -> None:
         """POST /client.loginByToken; store the returned session string.
 
-        The token struct is sent as a single positional argument — Sklik's JSON
-        endpoint always expects a JSON array of args (XML-RPC-encoded-as-JSON).
+        The token is sent as a bare string positional arg, NOT a struct. Sklik's
+        diagnostic explicitly says "Parameter token must be string, not struct".
         """
-        resp = self._post("client.loginByToken", {"token": self.token})
+        resp = self._post("client.loginByToken", self.token)
         sess = resp.get("session")
         if not sess:
             raise SessionError("Login response missing session", status=resp.get("status"))

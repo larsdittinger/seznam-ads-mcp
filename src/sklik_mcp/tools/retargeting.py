@@ -1,10 +1,8 @@
-"""Retargeting tools (retargetingové seznamy) — list, create, update, remove."""
+"""Retargeting tools (retargetingové seznamy) — list, create, update, remove.
 
-# UNVERIFIED: The Sklik method names in this module (retargeting.list,
-# retargeting.create, retargeting.update, retargeting.remove) are best-effort
-# guesses based on Sklik's documentation conventions. They have NOT been verified
-# against the live API yet. If a call returns 404, consult api.sklik.cz/drak/ and
-# adjust the method string. Tracked for v0.1.1.
+Verified against live API 2026-04-30: methods live under the `retargeting.lists.*`
+namespace, response field is `lists` (not `retargetingLists`).
+"""
 
 from __future__ import annotations
 
@@ -25,8 +23,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"retargeting_lists": [{"id": int, "name": str, ...}, ...]}
         """
-        resp = client.call("retargeting.list", {})
-        return {"retargeting_lists": resp.get("retargetingLists", [])}
+        resp = client.call("retargeting.lists.list")
+        return {"retargeting_lists": resp.get("lists", [])}
 
     @mcp.tool()
     @with_sklik_error_handling
@@ -44,7 +42,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
             {"retargeting_id": int}
         """
         body = {"name": name, "membershipLifespan": membership_lifespan_days}
-        resp = client.call("retargeting.create", body)
+        resp = client.call("retargeting.lists.create", body)
         return {"retargeting_id": resp.get("retargetingId")}
 
     @mcp.tool()
@@ -70,12 +68,12 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         if membership_lifespan_days is not None:
             body["membershipLifespan"] = membership_lifespan_days
         # Sklik update_* methods are uniformly bulk: pass [body] like the others.
-        client.call("retargeting.update", [body])
+        client.call("retargeting.lists.update", [body])
         return {"updated": True}
 
     @mcp.tool()
     @with_sklik_error_handling
     def remove_retargeting_list(retargeting_id: int) -> dict[str, Any]:
         """Remove a retargeting list (smazat seznam)."""
-        client.call("retargeting.remove", {"id": retargeting_id})
+        client.call("retargeting.lists.remove", {"id": retargeting_id})
         return {"removed": True, "retargeting_id": retargeting_id}
