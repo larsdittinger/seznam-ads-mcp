@@ -129,7 +129,8 @@ started.
 | Account-level stats — `get_account_overview` | 1 | ✅ verified |
 | Dynamic ads — `create_dynamic_ad` | 1 | ⚠️ unverified (wire shape not confirmed) |
 | Per-entity stats — `get_conversion_stats` etc. | 1 | ⏳ deferred to v0.2 (async report API) |
-| Fénix /v1 — user info, shop items, shopping campaigns + stats | 6 | 🔵 wired, live smoke pending fresh refresh JWT |
+| Fénix /v1 — `get_fenix_user_info` | 1 | ✅ verified (OAuth2 refresh→access flow + `/user/me` round-trip on 2026-05-01) |
+| Fénix /v1 — Nákupy: `list_shop_items`, `update_shop_item_bid`, `list_shopping_campaigns`, `get_shopping_stats` | 4 | 🔵 wired, awaits a `premise_id` to smoke against |
 
 ### Tool surface
 
@@ -156,8 +157,8 @@ graph TB
         ACC --> OVW
     end
 
-    subgraph Fenix["Sklik /v1 REST — Nákupy / Fénix (OAuth2)"]
-        WHO["<b>get_fenix_user_info</b><br/>/user/me sanity check"]:::wired
+    subgraph Fenix["Sklik /v1 REST — OAuth2 verified 2026-05-01"]
+        WHO["<b>get_fenix_user_info</b><br/>/user/me sanity check"]:::ok
         SHO["<b>Shop items</b><br/>list · update_bid"]:::wired
         SCA["<b>Shopping campaigns</b><br/>list"]:::wired
         SST["<b>Shopping stats</b><br/>aggregated by day/week/…"]:::wired
@@ -175,7 +176,7 @@ Legend: 🟢 verified live · 🟡 unverified · ⚪ deferred to v0.2 · 🔵 wi
 
 - **Per-entity stats** (campaigns/groups/ads/keywords) and **`get_conversion_stats`** — Sklik exposes these via an async report-query model (`<entity>.createReport` → poll → `<entity>.readReport`) that we haven't implemented yet. Tracked for v0.2.
 - **`create_dynamic_ad`** — wire shape not fully confirmed; treat as experimental. Tracked for v0.1.x.
-- **Fénix (Seznam Nákupy)** — wired against the unified `/v1/` API with proper OAuth2 refresh→access token exchange and the real `/nakupy/` endpoints (per the published OpenAPI spec). Use `get_fenix_user_info` first to confirm your refresh token works; live end-to-end smoke against a fresh refresh token is still pending.
+- **Fénix (Seznam Nákupy)** — OAuth2 refresh→access exchange and `/user/me` round-trip verified live on 2026-05-01. The Nákupy-specific endpoints (`/nakupy/shop-items/`, `/nakupy/campaigns/`, `/nakupy/statistics/aggregated`) are wired exactly per the published OpenAPI spec but require a Sklik *premise* (provozovna) to smoke against — there's no list-premises endpoint in `/v1/`, so users must obtain their `premise_id` from the Sklik Nákupy admin UI.
 
 See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.
 

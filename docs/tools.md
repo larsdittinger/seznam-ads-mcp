@@ -25,7 +25,7 @@ the JSON API.
 | Stats — per-entity | **NOT IMPLEMENTED** | Sklik uses async report-query (`<entity>.createReport` → poll → `<entity>.readReport`); tracked for v0.2 |
 | Retargeting | **VERIFIED end-to-end** | full CRUD confirmed live (test list created and removed) |
 | Conversions | partially verified | `list_conversions` works; `get_conversion_stats` uses the async report flow (NOT IMPLEMENTED, tracked for v0.2) |
-| Fénix / Nákupy | **wired (live untested)** | OAuth2 refresh→access flow + real `/v1/nakupy/` endpoints from the published OpenAPI spec. Live smoke pending a fresh refresh token. |
+| Fénix / Nákupy | **OAuth + /user/me verified, Nákupy endpoints wired** | OAuth2 refresh→access flow and `/v1/user/me` round-trip verified live on 2026-05-01. Nákupy-specific endpoints (`/v1/nakupy/...`) wired exactly per the published OpenAPI spec; smoke against a real premise pending. |
 
 ### Conventions discovered while wiring against live API
 
@@ -223,11 +223,12 @@ not Drak campaign id. Most calls take a `premise_id`. Discover yours
 through Sklik's Nákupy admin UI; we don't yet expose a "list premises"
 helper (tracked for v0.1.x).
 
-Live end-to-end verification is still pending — the OAuth flow and
-endpoint paths follow the official OpenAPI spec exactly, but we
-haven't smoked the round-trip with a fresh refresh token yet. Use
-`get_fenix_user_info` first to confirm your refresh token is valid
-before reaching for the Nákupy-specific tools.
+**Live verification status (2026-05-01):** The OAuth refresh→access
+flow and `/v1/user/me` round-trip are verified live. The
+`/nakupy/*` endpoints follow the official OpenAPI spec exactly but
+have not yet been smoked against a real premise — users should
+call `get_fenix_user_info` first to confirm their refresh token, then
+supply a real `premise_id` to exercise the Nákupy tools.
 
 ### `get_fenix_user_info()`
 Returns the currently authorized `/v1/` user (`userId`, `userName`, `actor`, `scope`). Sanity-check helper for verifying that `SKLIK_FENIX_TOKEN` is set, valid, and has the scopes you expect — useful before calling any Nákupy-specific tool. Calls `GET /v1/user/me`.
