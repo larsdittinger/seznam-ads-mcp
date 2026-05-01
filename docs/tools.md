@@ -2,7 +2,7 @@
 
 All tools take their arguments as keyword args via the MCP protocol. Money fields are always in Kč (the Sklik API uses haléře internally — tools convert for you).
 
-This catalogue lists every tool registered by the server (40 Drak tools + 5 Fénix tools = 45 total when `SKLIK_FENIX_TOKEN` is set, 40 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
+This catalogue lists every tool registered by the server (39 Drak tools + 5 Fénix tools = 44 total when `SKLIK_FENIX_TOKEN` is set, 39 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
 
 ## Verification status (2026-05-01)
 
@@ -18,7 +18,7 @@ the JSON API.
 | Campaigns | **VERIFIED end-to-end** | list/get/create/update/pause/resume/remove all confirmed live |
 | Ad groups | **VERIFIED end-to-end** | full CRUD confirmed live |
 | Ads | **VERIFIED end-to-end** | text ad CRUD confirmed live |
-| Ads — dynamic | **UNVERIFIED** | `create_dynamic_ad` wire shape not fully discovered yet (tracked for v0.1.x) |
+| Ads — dynamic / DSA | **not exposed by Drak v5** | Probed exhaustively on 2026-05-01: `ads.create` rejects `type`/`creativeType`, all alternative methods (`ads.createDynamic`, `dsa.create`, `dynamicAds.create`, `groups.createDynamic`) return 404, `groups.update` rejects DSA-target fields. Sklik's web UI uses a non-public route. The MCP intentionally ships only `create_text_ad`. |
 | Keywords | **VERIFIED end-to-end** | full CRUD confirmed live |
 | Negative keywords | **VERIFIED** | redesigned: campaign-level only, set-whole-list via `campaigns.update`. Read API not exposed in v5 |
 | Stats — `get_account_overview` | **VERIFIED** | live-tested |
@@ -100,7 +100,7 @@ Returns: `{"updated": true}`
 
 ### `pause_ad_group(group_id)` / `resume_ad_group(group_id)` / `remove_ad_group(group_id)`
 
-## Ads (8)
+## Ads (7)
 
 ### `list_ads(group_id?, status?, include_deleted=False, limit=100, offset=0)`
 Returns: `{"ads": [...], "total": int}`. Surfaces id, adType, status, headlines, description(s), finalUrl, deleted, parent group/campaign refs.
@@ -110,10 +110,6 @@ Returns: `{"ad": {...} | null}`
 
 ### `create_text_ad(group_id, headline1, headline2, description1, final_url, headline3?, description2?)`
 On the wire `description1` is sent as Sklik's `description` field (singular). No `type` field is allowed — Sklik infers ad type from group/fields.
-Returns: `{"ad_id": int}`
-
-### `create_dynamic_ad(group_id, final_url, description1?)` — UNVERIFIED
-Sklik's exact wire shape for dynamic ads is not yet confirmed. Treat as experimental until probed end-to-end. Tracked for v0.1.x.
 Returns: `{"ad_id": int}`
 
 ### `update_ad(ad_id, headline1?, headline2?, headline3?, description1?, description2?, final_url?, status?)`

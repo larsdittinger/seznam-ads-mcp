@@ -1,18 +1,24 @@
 """Ad tools (inzeráty) — list, get, create text, update, pause/resume, remove.
 
-Wire shape (verified live 2026-04-30):
+Wire shape (verified live 2026-04-30 — ads.create probed exhaustively
+on 2026-05-01):
+
 - ads.list filter accepts only `ids` and nested `group: {ids: [...]}`.
   No status filter — apply client-side.
-- ads.create / ads.update do NOT accept a `type` field. (We previously tried
-  to pass type=text/dynamic; Sklik rejects it.) The ad type is implicit from
-  which group the ad lives in and which field set is provided.
+- ads.create / ads.update do NOT accept a `type` or `creativeType` field
+  — the server explicitly rejects them with `not_allowed_struct_field`.
+  ads.create has a SINGLE wire shape: `groupId`, `headline1`, `headline2`,
+  `description`, `finalUrl` (all required), plus optional `headline3` and
+  `description2`. There is no separate dynamic-search-ad creation
+  endpoint in Drak v5 — `ads.createDynamic`, `dsa.create`,
+  `dynamicAds.create`, `groups.createDynamic` etc. all return 404, and
+  `groups.update` rejects `dynamicTarget` / `dsaTarget` / `creativeType`.
+  Sklik's web UI must be using a non-public route for DSA; until that's
+  exposed in v5 (or a future API version) we don't ship a dynamic-ad
+  tool — `create_text_ad` is the only verified path.
 - Description field on ads is `description` (singular, the first line) and
   optionally `description2` for the second line. There is no `description1`.
 - Status values are `active` | `suspend` only. Use `ads.remove` for delete.
-
-Dynamic ads (`create_dynamic_ad`) are UNVERIFIED in v0.1 — Sklik's wire
-shape for dynamic-search-ad creation is not fully discovered yet. Tracked
-for v0.1.x.
 """
 
 from __future__ import annotations
@@ -144,38 +150,6 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
             body["headline3"] = headline3
         if description2 is not None:
             body["description2"] = description2
-        resp = client.call("ads.create", [body])
-        ids = resp.get("adIds") or []
-        return {"ad_id": ids[0] if ids else None}
-
-    @mcp.tool()
-    @with_sklik_error_handling
-    def create_dynamic_ad(
-        group_id: int,
-        final_url: str,
-        description1: str | None = None,
-    ) -> dict[str, Any]:
-        """Create a dynamic ad (dynamický inzerát) in the given ad group.
-
-        UNVERIFIED in v0.1: Sklik's dynamic-ad wire shape isn't fully
-        confirmed yet. Sklik may require ad-group-level templates rather
-        than an `ads.create` call. If this returns 400 Bad arguments,
-        treat as known limitation; tracked for v0.1.x.
-
-        Args:
-            group_id: Parent ad group ID.
-            final_url: Landing page URL.
-            description1: Optional description line override.
-
-        Returns:
-            {"ad_id": int}
-        """
-        body: dict[str, Any] = {
-            "groupId": group_id,
-            "finalUrl": final_url,
-        }
-        if description1 is not None:
-            body["description"] = description1
         resp = client.call("ads.create", [body])
         ids = resp.get("adIds") or []
         return {"ad_id": ids[0] if ids else None}

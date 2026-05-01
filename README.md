@@ -107,7 +107,7 @@ uv run mypy
 
 ## Status
 
-**Alpha (v0.1.0)** — 45 tools, end-to-end verified against the live Sklik API on **2026-05-01**.
+**Alpha (v0.1.0)** — 44 tools, end-to-end verified against the live Sklik API on **2026-05-01**.
 
 End-to-end test on a real account: created a fulltext campaign with ad
 group, text ad, three keywords, and a retargeting list; paused/resumed
@@ -121,13 +121,12 @@ started.
 | Accounts (`current_account`, `list_managed_accounts`, `switch_account`) | 3 | ✅ verified |
 | Campaigns — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
 | Ad groups — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
-| Text ads — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
+| Text ads — list/get/create/update/pause/resume/remove | 7 | ✅ verified (Drak v5 has a single `ads.create` shape — there's no DSA / dynamic-ad endpoint at all) |
 | Keywords — list/get/add/update/pause/resume/remove | 7 | ✅ verified |
 | Negative keywords — `set_campaign_negative_keywords` | 1 | ✅ verified |
 | Retargeting lists — list/create/update/remove | 4 | ✅ verified |
 | Conversions — `list_conversions` | 1 | ✅ verified |
 | Account-level stats — `get_account_overview` | 1 | ✅ verified |
-| Dynamic ads — `create_dynamic_ad` | 1 | ⚠️ unverified (wire shape not confirmed) |
 | Per-entity stats — `get_conversion_stats` etc. | 1 | ⏳ deferred to v0.2 (async report API) |
 | Fénix /v1 — `get_fenix_user_info`, `list_shopping_campaigns` | 2 | ✅ verified (OAuth2 refresh→access flow + `/user/me` + `/nakupy/campaigns/` round-trip on 2026-05-01 against premise 230104) |
 | Fénix /v1 — `list_shop_items`, `update_shop_item_bid`, `get_shopping_stats` | 3 | 🔵 wired, server returns 403 on read-only test token (insufficient resource scope, see Status notes) |
@@ -145,7 +144,6 @@ graph TB
         NK["<b>Negative kw</b><br/>set-whole-list"]:::ok
         RT["<b>Retargeting List</b><br/>list · create · update · remove"]:::ok
         OVW["<b>Account stats</b><br/>account_overview · list_conversions"]:::ok
-        DYN["<b>Dynamic Ad</b><br/>create only"]:::warn
         PER["<b>Per-entity stats</b><br/>deferred to v0.2"]:::pending
 
         ACC --> CMP
@@ -175,7 +173,7 @@ Legend: 🟢 verified live · 🟡 unverified · ⚪ deferred to v0.2 · 🔵 wi
 ### Known limitations in v0.1.0
 
 - **Per-entity stats** (campaigns/groups/ads/keywords) and **`get_conversion_stats`** — Sklik exposes these via an async report-query model (`<entity>.createReport` → poll → `<entity>.readReport`) that we haven't implemented yet. Tracked for v0.2.
-- **`create_dynamic_ad`** — wire shape not fully confirmed; treat as experimental. Tracked for v0.1.x.
+- **Dynamic search ads (DSA)** — Drak v5 has no public dynamic-ad endpoint. We probed `ads.createDynamic`, `dynamicAds.create`, `dsa.create`, `groups.createDynamic` (all 404) and `ads.create`/`groups.update` reject every DSA-shaped field. Sklik's web UI uses a non-public route for DSA; until that surfaces in v5 (or a successor API), the MCP only exposes `create_text_ad`.
 - **Fénix (Seznam Nákupy)** — OAuth2 refresh→access exchange, `/user/me`, `/nakupy/feeds/` and `/nakupy/campaigns/` all verified live against a real premise on 2026-05-01. `list_shop_items`, `get_shopping_stats` and `update_shop_item_bid` returned **403 Forbidden** on our test refresh token even though the token's `scope` covered `r rw rwa`; Sklik gates `/nakupy/shop-items/`, `/nakupy/products/`, `/nakupy/categories/` and `/nakupy/statistics/aggregated` behind a granular *resource* scope that has to be granted at the time the refresh token is generated. Implementation matches the OpenAPI spec exactly — when a token with the right scope is supplied, these tools should "just work". There is no list-premises endpoint in `/v1/`, so users must obtain their `premise_id` from the Sklik Nákupy admin UI.
 
 See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.

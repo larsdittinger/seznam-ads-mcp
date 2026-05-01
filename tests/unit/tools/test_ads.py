@@ -120,27 +120,6 @@ async def test_create_text_ad_includes_optional_fields():
     assert body["description2"] == "d2"
 
 
-async def test_create_dynamic_ad_sends_correct_body():
-    mcp, client = _setup({"status": 200, "adIds": [777]})
-    out = await _invoke(
-        mcp,
-        "create_dynamic_ad",
-        {
-            "group_id": 2,
-            "final_url": "https://shop.cz",
-            "description1": "Popis dynamicky",
-        },
-    )
-    assert out["ad_id"] == 777
-    body = client.call.call_args[0][1][0]
-    # No `type` field — ads.create rejects it.
-    assert "type" not in body
-    assert body["groupId"] == 2
-    assert body["finalUrl"] == "https://shop.cz"
-    # description1 maps to Sklik's `description`.
-    assert body["description"] == "Popis dynamicky"
-
-
 async def test_update_ad_sends_partial_fields():
     mcp, client = _setup({"status": 200})
     await _invoke(
