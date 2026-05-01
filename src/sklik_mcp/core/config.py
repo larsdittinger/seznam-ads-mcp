@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     api_token: str
     endpoint: str = "https://api.sklik.cz/drak/json/v5"
-    fenix_endpoint: str = "https://api.sklik.cz/fenix/v1"
+    # Fénix / unified /v1 API. The token here is a refresh JWT obtained from
+    # sklik.cz; the client exchanges it for a short-lived access token.
+    fenix_token: str | None = None
+    fenix_endpoint: str = "https://api.sklik.cz/v1"
     request_timeout_s: int = 30
     log_level: str = "INFO"

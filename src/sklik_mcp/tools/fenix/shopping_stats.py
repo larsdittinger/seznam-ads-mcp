@@ -1,9 +1,10 @@
-"""Fénix shopping stats tool."""
+"""Sklik Nákupy aggregated statistics tool.
 
-# UNVERIFIED: The Fénix path in this module (stats/shopping) is a best-effort
-# guess based on Fénix's documentation conventions. It has NOT been verified
-# against the live API yet. If a call returns 404, consult api.sklik.cz/fenix/
-# and adjust the path string. Tracked for v0.1.1.
+Talks to `POST /v1/nakupy/statistics/aggregated` per the official
+OpenAPI spec at https://api.sklik.cz/v1/openapi.json. The endpoint takes
+a `ReportParams` body with `from`/`to` ISO datetimes and an optional
+granularity.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +16,8 @@ from sklik_mcp.core.client import SklikClient
 from sklik_mcp.core.errors import with_sklik_error_handling
 from sklik_mcp.tools.fenix.client import FenixClient
 
+Granularity = Literal["daily", "weekly", "monthly", "quarterly", "yearly", "none"]
+
 
 def register(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None) -> None:
     if fenix is None:
@@ -23,24 +26,31 @@ def register(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None = None
     @mcp.tool()
     @with_sklik_error_handling
     def get_shopping_stats(
+        premise_id: int,
         date_from: str,
         date_to: str,
-        group_by: Literal["day", "campaign", "productGroup"] = "day",
+        granularity: Granularity = "daily",
     ) -> dict[str, Any]:
-        """Shopping (Fénix) performance stats.
+        """Aggregated Sklik Nákupy stats for a premise over a date range.
 
         Args:
-            date_from: ISO date (YYYY-MM-DD), inclusive.
-            date_to: ISO date (YYYY-MM-DD), inclusive.
-            group_by: Aggregation level — "day", "campaign", or "productGroup".
+            premise_id: Sklik premise (provozovna) ID.
+            date_from: Start of the period (ISO datetime, e.g. 2026-04-01
+                or 2026-04-01T00:00:00).
+            date_to: End of the period, inclusive.
+            granularity: One of daily, weekly, monthly, quarterly, yearly,
+                or none (= single rollup row). Default daily.
 
         Returns:
-            Raw shopping stats response from Fénix.
+            Raw `AggregatedStatisticsResponse` from Sklik.
         """
-        resp = fenix.get(
-            "stats/shopping",
-            dateFrom=date_from,
-            dateTo=date_to,
-            groupBy=group_by,
+        body = {
+            "from": date_from,
+            "to": date_to,
+            "granularity": granularity,
+        }
+        return fenix.post(
+            "/nakupy/statistics/aggregated",
+            json=body,
+            params={"premiseId": premise_id},
         )
-        return resp

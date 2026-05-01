@@ -12,7 +12,7 @@ from sklik_mcp.core.config import Settings
 from sklik_mcp.tools.fenix.client import FenixClient
 
 
-def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient) -> None:
+def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None) -> None:
     from sklik_mcp.tools import (
         accounts,
         ad_groups,
@@ -38,8 +38,11 @@ def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient) -> None
         conversions,
     ):
         drak_module.register(mcp, client)
-    for fenix_module in (product_groups, shopping_stats):
-        fenix_module.register(mcp, client, fenix)
+    # Fénix tools only registered when SKLIK_FENIX_TOKEN is set — otherwise
+    # they'd all fail with the same auth error and confuse users about why.
+    if fenix is not None:
+        for fenix_module in (product_groups, shopping_stats):
+            fenix_module.register(mcp, client, fenix)
 
 
 def build_server() -> FastMCP:
@@ -56,11 +59,14 @@ def build_server() -> FastMCP:
         endpoint=settings.endpoint,
         timeout_s=settings.request_timeout_s,
     )
+    # Fénix uses an OAuth2 refresh→access flow with its own refresh token
+    # (SKLIK_FENIX_TOKEN). When unset, Fénix tools will surface a clear error
+    # rather than silently using the Drak API token.
     fenix = FenixClient(
-        token=settings.api_token,
+        refresh_token=settings.fenix_token or "",
         endpoint=settings.fenix_endpoint,
         timeout_s=settings.request_timeout_s,
-    )
+    ) if settings.fenix_token else None
     mcp = FastMCP("sklik-mcp")
     _register_all(mcp, client, fenix)
     return mcp

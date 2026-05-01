@@ -2,7 +2,7 @@
 
 All tools take their arguments as keyword args via the MCP protocol. Money fields are always in Kč (the Sklik API uses haléře internally — tools convert for you).
 
-This catalogue lists every tool registered by the server (43 total, grouped by module). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
+This catalogue lists every tool registered by the server (40 Drak tools + 4 Fénix tools = 44 total when `SKLIK_FENIX_TOKEN` is set, 40 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
 
 ## Verification status (2026-05-01)
 
@@ -25,7 +25,7 @@ the JSON API.
 | Stats — per-entity | **NOT IMPLEMENTED** | Sklik uses async report-query (`<entity>.createReport` → poll → `<entity>.readReport`); tracked for v0.2 |
 | Retargeting | **VERIFIED end-to-end** | full CRUD confirmed live (test list created and removed) |
 | Conversions | partially verified | `list_conversions` works; `get_conversion_stats` uses the async report flow (NOT IMPLEMENTED, tracked for v0.2) |
-| Fénix | **NOT WORKING** | Fénix uses OAuth2 (refresh→access token), our client sends raw Bearer. Tracked for v0.1.2. |
+| Fénix / Nákupy | **wired (live untested)** | OAuth2 refresh→access flow + real `/v1/nakupy/` endpoints from the published OpenAPI spec. Live smoke pending a fresh refresh token. |
 
 ### Conventions discovered while wiring against live API
 
@@ -204,10 +204,38 @@ Returns: `{"conversions": [...]}`
 ### `get_conversion_stats(conversion_id, date_from, date_to)` — UNVERIFIED
 Likely uses Sklik's async report flow (not implemented yet). Will return raw response or 404 until v0.2.
 
-## Fénix shopping (3) — BROKEN as of v0.1.0
+## Fénix / Sklik Nákupy (4) — wired against unified `/v1/` API
 
-Fénix is Sklik's REST endpoint for Seznam Nákupy. **The token format is OAuth2 (a JWT refresh_token), not the Drak API token.** The current `FenixClient` sends the refresh_token as a Bearer header directly, which Fénix rejects. Need to add a refresh→access token exchange step. **Tracked for v0.1.2.**
+The Fénix tools talk to the unified `/v1/` REST API (OpenAPI spec at
+`https://api.sklik.cz/v1/openapi.json`). They are only registered when
+`SKLIK_FENIX_TOKEN` is set; without it, the tools simply don't appear,
+keeping the Drak tools usable on their own.
 
-### `list_product_groups(campaign_id: int)`
-### `update_product_group_bid(product_group_id, max_cpc_kc)`
-### `get_shopping_stats(date_from, date_to, group_by="day")`
+**Auth:** A two-step OAuth2 flow. The user provides a long-lived
+refresh JWT (from the Sklik web UI). On first use, the client exchanges
+it for a short-lived access token via `POST /v1/user/token`
+(form-encoded, `grant_type=client_credentials`, refresh JWT in the
+Authorization header). The access token is cached and reused; we
+re-exchange when it nears expiry.
+
+**Premise IDs:** Sklik Nákupy is organised by *provozovna* (premise),
+not Drak campaign id. Most calls take a `premise_id`. Discover yours
+through Sklik's Nákupy admin UI; we don't yet expose a "list premises"
+helper (tracked for v0.1.x).
+
+Live end-to-end verification is still pending — the OAuth flow and
+endpoint paths follow the official OpenAPI spec exactly, but we
+haven't smoked the round-trip with a fresh refresh token yet.
+
+### `list_shop_items(premise_id, item_id?, paired?, product_category_id?, limit=100, offset=0)`
+List shop items (rows from your XML feed) for a Nákupy premise.
+Returns the raw `ListShopItemsResponse` (`{"items": [...]}` etc.).
+
+### `update_shop_item_bid(premise_id, item_id, search_max_cpc_kc?, product_max_cpc_kc?)`
+PATCH a single shop item's CPC bids. `searchMaxCpc` covers Seznam Nákupy search results; `productMaxCpc` covers clicks from product detail pages. Bids are decimal Kč (NOT haléře).
+
+### `list_shopping_campaigns(premise_id)`
+List Sklik Nákupy campaigns scoped to a premise.
+
+### `get_shopping_stats(premise_id, date_from, date_to, granularity="daily")`
+POST to `/nakupy/statistics/aggregated`. Granularity ∈ `daily | weekly | monthly | quarterly | yearly | none`.

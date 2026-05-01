@@ -9,7 +9,8 @@ def test_settings_loads_from_env(monkeypatch):
     s = Settings()
     assert s.api_token == "abc-123"
     assert s.endpoint == "https://api.sklik.cz/drak/json/v5"
-    assert s.fenix_endpoint == "https://api.sklik.cz/fenix/v1"
+    assert s.fenix_endpoint == "https://api.sklik.cz/v1"
+    assert s.fenix_token is None
     assert s.request_timeout_s == 30
 
 

@@ -53,7 +53,8 @@ Add to your config (`~/.config/Claude/claude_desktop_config.json` on Linux, simi
       "command": "uvx",
       "args": ["sklik-mcp"],
       "env": {
-        "SKLIK_API_TOKEN": "your-token-here"
+        "SKLIK_API_TOKEN": "your-drak-token-here",
+        "SKLIK_FENIX_TOKEN": "your-v1-refresh-token-here"
       }
     }
   }
@@ -78,11 +79,16 @@ Once installed, ask Claude:
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `SKLIK_API_TOKEN` | — (required) | Your Sklik API token |
+| `SKLIK_API_TOKEN` | — (required) | Drak JSON-RPC API token (campaigns, ads, keywords, …) |
+| `SKLIK_FENIX_TOKEN` | — (optional) | Refresh JWT for the unified `/v1/` API (Sklik Nákupy / Fénix). When unset, the Fénix tools are not registered. |
 | `SKLIK_ENDPOINT` | `https://api.sklik.cz/drak/json/v5` | Drak JSON endpoint |
-| `SKLIK_FENIX_ENDPOINT` | `https://api.sklik.cz/fenix/v1` | Fénix REST endpoint |
+| `SKLIK_FENIX_ENDPOINT` | `https://api.sklik.cz/v1` | Sklik /v1 endpoint |
 | `SKLIK_REQUEST_TIMEOUT_S` | `30` | HTTP timeout |
 | `SKLIK_LOG_LEVEL` | `INFO` | Python log level |
+
+**Drak token:** Sklik web admin → Nastavení → API token (must be the account owner, not impersonated).
+
+**Fénix refresh token:** Log in to https://www.sklik.cz/, generate a refresh token from the API section. The MCP exchanges it for a short-lived access token automatically and re-exchanges before expiry.
 
 ## Tools
 
@@ -118,7 +124,7 @@ Verified working (full CRUD round-trips):
 Known limitations in v0.1.0:
 - **Per-entity stats** (campaigns/groups/ads/keywords) and **`get_conversion_stats`** — Sklik exposes these via an async report-query model (`<entity>.createReport` → poll → `<entity>.readReport`) that we haven't implemented yet. Tracked for v0.2.
 - **`create_dynamic_ad`** — wire shape not fully confirmed; treat as experimental. Tracked for v0.1.x.
-- **Fénix (Seznam Nákupy)** — uses an OAuth2 refresh→access token exchange, not a direct Bearer header. Tracked for v0.1.2.
+- **Fénix (Seznam Nákupy)** — wired against the unified `/v1/` API with proper OAuth2 refresh→access token exchange and the real `/nakupy/` endpoints (per the published OpenAPI spec). Live end-to-end smoke against a fresh refresh token is still pending.
 
 See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.
 
