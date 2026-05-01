@@ -200,6 +200,47 @@ Returns: `{"conversions": [...]}`
 ### `get_conversion_stats(conversion_id, date_from, date_to)` — UNVERIFIED
 Likely uses Sklik's async report flow (not implemented yet). Will return raw response or 404 until v0.2.
 
+## Per-entity stats (deferred to v0.2)
+
+Drak v5 *does* expose `<entity>.createReport` → `<entity>.readReport`
+on `campaigns`, `groups`, `ads`, `keywords`, `retargeting`. Wire shape
+verified live on 2026-05-01:
+
+```
+campaigns.createReport(
+    auth,
+    {dateFrom, dateTo, [ids]},                      # restrictionFilter
+    {[includeCurrentDayStats]}                       # displayOptions
+) -> {reportId, totalCount}
+
+campaigns.readReport(
+    auth,
+    reportId,
+    {offset, limit, displayColumns: [...]}           # displayOptions
+) -> {report: [rows]}
+```
+
+Available `displayColumns` (subset, all entities accept similar): `id`,
+`name`, `status`, `clicks`, `impressions`, `ctr`, `avgCpc`, `avgPos`,
+`conversions`, `conversionValue`, `totalMoney`, `clickMoney`,
+`impressionMoney`, `transactions`, `pno`, `actualClicks`, `totalClicks`,
+`missImpressions`, `avgCpt`, `budget.dayBudget`, `budget.totalBudget`,
+`exhaustedBudget`. **No `granularity` field** — Drak v5 reports always
+roll up the whole date range into one row per entity.
+
+**Why we don't ship these tools yet:** every `readReport` call against
+the Ethia test account returned `report: []` even with `totalCount=3`
+matched and a 60s wait — including for the active Nákupy:ethia.cz
+campaign over a 6-month window. The Sklik web UI has clearly migrated
+off Drak v5 reports (it now hits `https://www.sklik.cz/api/v1/campaigns`
+with `from=&to=` query params and a v4 GraphQL endpoint, not the public
+Drak API), so the Drak v5 report engine appears to either be deprecated
+or to silently exclude entities below some threshold we haven't
+identified. Shipping tools that "look" right but always return zero
+data would be a footgun. We need a known-good account or fresh Sklik
+guidance before promoting these to a public surface — tracked as
+Task #14.
+
 ## Fénix / Sklik Nákupy (5) — wired against unified `/v1/` API
 
 The Fénix tools talk to the unified `/v1/` REST API (OpenAPI spec at
