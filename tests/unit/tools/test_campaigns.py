@@ -39,6 +39,46 @@ async def test_list_campaigns_calls_correct_method():
     assert "offset" in args[0][2]
 
 
+async def test_list_campaigns_hides_soft_deleted_by_default():
+    """Sklik never hard-removes; we filter `deleted=true` rows client-side."""
+    mcp, _client = _setup(
+        {
+            "status": 200,
+            "campaigns": [
+                {"id": 1, "name": "Live", "deleted": False, "status": "active"},
+                {"id": 2, "name": "Trash", "deleted": True, "status": "suspend"},
+            ],
+        }
+    )
+    out = await _invoke(mcp, "list_campaigns", {})
+    assert [c["id"] for c in out["campaigns"]] == [1]
+
+
+async def test_list_campaigns_include_deleted_returns_them():
+    mcp, _client = _setup(
+        {
+            "status": 200,
+            "campaigns": [
+                {"id": 1, "name": "Live", "deleted": False},
+                {"id": 2, "name": "Trash", "deleted": True},
+            ],
+        }
+    )
+    out = await _invoke(mcp, "list_campaigns", {"include_deleted": True})
+    assert [c["id"] for c in out["campaigns"]] == [1, 2]
+
+
+async def test_list_campaigns_requests_useful_display_columns():
+    mcp, client = _setup({"status": 200, "campaigns": []})
+    await _invoke(mcp, "list_campaigns", {})
+    opts = client.call.call_args[0][2]
+    cols = opts["displayColumns"]
+    # Sanity: deleted flag is requested so we can filter, and budget/dates surface.
+    assert "deleted" in cols
+    assert "budget.dayBudget" in cols
+    assert "type" in cols
+
+
 async def test_list_campaigns_passes_filters_clientside():
     """status_filter and name_contains are applied client-side; Sklik v5
     doesn't accept them in the wire filter struct."""

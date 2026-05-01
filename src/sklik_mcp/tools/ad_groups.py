@@ -20,6 +20,20 @@ from sklik_mcp.core.errors import with_sklik_error_handling
 PublicStatus = Literal["active", "paused"]
 _WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
+# Default response columns. Without these Sklik would only return
+# id/name/campaign/status — hiding the deleted flag and the bid.
+_DEFAULT_COLUMNS: list[str] = [
+    "id",
+    "name",
+    "status",
+    "deleted",
+    "deleteDate",
+    "createDate",
+    "maxCpc",
+    "campaign.id",
+    "campaign.name",
+]
+
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
@@ -28,6 +42,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         campaign_id: int | None = None,
         status_filter: PublicStatus | None = None,
         name_contains: str | None = None,
+        include_deleted: bool = False,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
@@ -37,6 +52,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
             campaign_id: Limit to ad groups in this campaign.
             status_filter: Only return groups with this status (active/paused).
             name_contains: Substring match on group name (case-insensitive).
+            include_deleted: If False (default), soft-deleted groups are hidden.
             limit: Max number of groups to fetch from Sklik per page.
             offset: Pagination offset.
 
@@ -46,9 +62,11 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         filt: dict[str, Any] = {}
         if campaign_id is not None:
             filt["campaign"] = {"ids": [campaign_id]}
-        opts = {"limit": limit, "offset": offset}
+        opts = {"limit": limit, "offset": offset, "displayColumns": _DEFAULT_COLUMNS}
         resp = client.call("groups.list", filt, opts)
         groups = resp.get("groups", [])
+        if not include_deleted:
+            groups = [g for g in groups if not g.get("deleted", False)]
         if status_filter is not None:
             target = _WIRE_STATUS[status_filter]
             groups = [g for g in groups if g.get("status") == target]
@@ -65,7 +83,11 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"group": {...}} or {"group": null} if not found.
         """
-        resp = client.call("groups.list", {"ids": [group_id]}, {"limit": 1, "offset": 0})
+        resp = client.call(
+            "groups.list",
+            {"ids": [group_id]},
+            {"limit": 1, "offset": 0, "displayColumns": _DEFAULT_COLUMNS},
+        )
         items = resp.get("groups", [])
         return {"group": items[0] if items else None}
 

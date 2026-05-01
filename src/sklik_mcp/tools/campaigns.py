@@ -26,6 +26,25 @@ CampaignType = Literal["fulltext", "context", "product", "video", "simple", "zbo
 # Public → wire status mapping. Sklik uses "suspend" instead of "paused".
 _WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
+# Sensible default columns surfaced on list/get. Without an explicit
+# displayColumns, Sklik returns only id/name/type/status — which hides the
+# `deleted` flag (so soft-deleted campaigns leak into list output) and the
+# day budget that callers usually want.
+_DEFAULT_COLUMNS: list[str] = [
+    "id",
+    "name",
+    "type",
+    "status",
+    "deleted",
+    "deleteDate",
+    "createDate",
+    "budget.dayBudget",
+    "budget.id",
+    "startDate",
+    "endDate",
+    "totalBudget",
+]
+
 
 def _fetch_campaign_type(client: SklikClient, campaign_id: int) -> str:
     """Read the campaign's type via campaigns.list.
@@ -34,7 +53,9 @@ def _fetch_campaign_type(client: SklikClient, campaign_id: int) -> str:
     payload, but the user only supplies an ID. We fetch it once internally.
     """
     resp = client.call(
-        "campaigns.list", {"ids": [campaign_id]}, {"limit": 1, "offset": 0}
+        "campaigns.list",
+        {"ids": [campaign_id]},
+        {"limit": 1, "offset": 0, "displayColumns": ["id", "type"]},
     )
     items = resp.get("campaigns", [])
     if not items:
@@ -48,26 +69,32 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def list_campaigns(
         status_filter: PublicStatus | None = None,
         name_contains: str | None = None,
+        include_deleted: bool = False,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
         """List campaigns (seznam kampaní) with optional client-side filters.
 
-        Sklik v5 only filters by `ids` server-side. Status/name filtering
-        happens locally after fetching the page.
+        Sklik v5 only filters by `ids` server-side. Status/name/deleted
+        filtering happens locally after fetching the page.
 
         Args:
             status_filter: Only return campaigns with this status (active/paused).
             name_contains: Substring match on campaign name (case-insensitive).
+            include_deleted: If False (default), soft-deleted campaigns are
+                hidden. Sklik never hard-removes; remove_campaign just sets
+                deleted=true and most callers don't want them in lists.
             limit: Max number of campaigns to fetch from Sklik per page.
             offset: Pagination offset.
 
         Returns:
             {"campaigns": [...], "total": int}
         """
-        opts = {"limit": limit, "offset": offset}
+        opts = {"limit": limit, "offset": offset, "displayColumns": _DEFAULT_COLUMNS}
         resp = client.call("campaigns.list", {}, opts)
         campaigns = resp.get("campaigns", [])
+        if not include_deleted:
+            campaigns = [c for c in campaigns if not c.get("deleted", False)]
         if status_filter is not None:
             target = _WIRE_STATUS[status_filter]
             campaigns = [c for c in campaigns if c.get("status") == target]
@@ -81,11 +108,17 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def get_campaign(campaign_id: int) -> dict[str, Any]:
         """Get a single campaign by ID.
 
+        Returns the campaign with all useful fields populated (name, type,
+        status, day budget, dates, deleted flag, …). Soft-deleted campaigns
+        are still returned — inspect the `deleted` field if you care.
+
         Returns:
             {"campaign": {...}} or {"campaign": null} if not found.
         """
         resp = client.call(
-            "campaigns.list", {"ids": [campaign_id]}, {"limit": 1, "offset": 0}
+            "campaigns.list",
+            {"ids": [campaign_id]},
+            {"limit": 1, "offset": 0, "displayColumns": _DEFAULT_COLUMNS},
         )
         items = resp.get("campaigns", [])
         return {"campaign": items[0] if items else None}

@@ -27,6 +27,30 @@ from sklik_mcp.core.errors import with_sklik_error_handling
 PublicStatus = Literal["active", "paused"]
 _WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
+# Default response columns. Without an explicit displayColumns Sklik
+# returns finalUrl as `null` (it stores the URL but the default response
+# omits it), and the deleted flag is hidden.
+_DEFAULT_COLUMNS: list[str] = [
+    "id",
+    "name",
+    "adType",
+    "status",
+    "deleted",
+    "deleteDate",
+    "createDate",
+    "headline1",
+    "headline2",
+    "headline3",
+    "description",
+    "description2",
+    "finalUrl",
+    "mobileFinalUrl",
+    "group.id",
+    "group.name",
+    "campaign.id",
+    "campaign.name",
+]
+
 
 def register(mcp: FastMCP, client: SklikClient) -> None:
     @mcp.tool()
@@ -34,6 +58,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def list_ads(
         group_id: int | None = None,
         status: PublicStatus | None = None,
+        include_deleted: bool = False,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
@@ -42,6 +67,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Args:
             group_id: Limit to ads in this ad group.
             status: Only return ads with this status (active/paused).
+            include_deleted: If False (default), soft-deleted ads are hidden.
             limit: Max number of ads to fetch per page.
             offset: Pagination offset.
 
@@ -51,9 +77,11 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         filt: dict[str, Any] = {}
         if group_id is not None:
             filt["group"] = {"ids": [group_id]}
-        opts = {"limit": limit, "offset": offset}
+        opts = {"limit": limit, "offset": offset, "displayColumns": _DEFAULT_COLUMNS}
         resp = client.call("ads.list", filt, opts)
         ads = resp.get("ads", [])
+        if not include_deleted:
+            ads = [a for a in ads if not a.get("deleted", False)]
         if status is not None:
             target = _WIRE_STATUS[status]
             ads = [a for a in ads if a.get("status") == target]
@@ -64,10 +92,18 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def get_ad(ad_id: int) -> dict[str, Any]:
         """Get a single ad by ID.
 
+        Returns the ad with all common fields populated (headlines,
+        description, finalUrl, status, deleted, …). The default Sklik
+        response omits finalUrl, so we request it explicitly.
+
         Returns:
             {"ad": {...}} or {"ad": null} if not found.
         """
-        resp = client.call("ads.list", {"ids": [ad_id]}, {"limit": 1, "offset": 0})
+        resp = client.call(
+            "ads.list",
+            {"ids": [ad_id]},
+            {"limit": 1, "offset": 0, "displayColumns": _DEFAULT_COLUMNS},
+        )
         items = resp.get("ads", [])
         return {"ad": items[0] if items else None}
 

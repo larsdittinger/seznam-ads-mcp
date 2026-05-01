@@ -23,6 +23,24 @@ PublicStatus = Literal["active", "paused"]
 MatchType = Literal["broad", "phrase", "exact"]
 _WIRE_STATUS: dict[str, str] = {"active": "active", "paused": "suspend"}
 
+# Default response columns. The minimal default response hides `cpc` and
+# `deleted`, both of which callers usually want.
+_DEFAULT_COLUMNS: list[str] = [
+    "id",
+    "name",
+    "matchType",
+    "status",
+    "deleted",
+    "deleteDate",
+    "createDate",
+    "cpc",
+    "url",
+    "group.id",
+    "group.name",
+    "campaign.id",
+    "campaign.name",
+]
+
 
 class KeywordInput(TypedDict, total=False):
     """One row passed to add_keywords. `max_cpc_kc` is optional."""
@@ -50,6 +68,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
     def list_keywords(
         group_id: int | None = None,
         status: PublicStatus | None = None,
+        include_deleted: bool = False,
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
@@ -58,6 +77,7 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Args:
             group_id: Limit to keywords in this ad group.
             status: Only return keywords with this status (active/paused).
+            include_deleted: If False (default), soft-deleted keywords are hidden.
             limit: Max number of keywords to fetch per page.
             offset: Pagination offset.
 
@@ -67,9 +87,11 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         filt: dict[str, Any] = {}
         if group_id is not None:
             filt["group"] = {"ids": [group_id]}
-        opts = {"limit": limit, "offset": offset}
+        opts = {"limit": limit, "offset": offset, "displayColumns": _DEFAULT_COLUMNS}
         resp = client.call("keywords.list", filt, opts)
         keywords = resp.get("keywords", [])
+        if not include_deleted:
+            keywords = [k for k in keywords if not k.get("deleted", False)]
         if status is not None:
             target = _WIRE_STATUS[status]
             keywords = [k for k in keywords if k.get("status") == target]
@@ -83,7 +105,11 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         Returns:
             {"keyword": {...}} or {"keyword": null} if not found.
         """
-        resp = client.call("keywords.list", {"ids": [keyword_id]}, {"limit": 1, "offset": 0})
+        resp = client.call(
+            "keywords.list",
+            {"ids": [keyword_id]},
+            {"limit": 1, "offset": 0, "displayColumns": _DEFAULT_COLUMNS},
+        )
         items = resp.get("keywords", [])
         return {"keyword": items[0] if items else None}
 
