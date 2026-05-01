@@ -107,24 +107,75 @@ uv run mypy
 
 ## Status
 
-**Alpha (v0.1.0)** — verified end-to-end against the live Sklik API on **2026-05-01**.
+**Alpha (v0.1.0)** — 46 tools, end-to-end verified against the live Sklik API on **2026-05-01**.
 
 End-to-end test on a real account: created a fulltext campaign with ad
 group, text ad, three keywords, and a retargeting list; paused/resumed
 each; set negative keywords; removed everything; account ended where it
 started.
 
-Verified working (full CRUD round-trips):
-- Accounts — `current_account`, `list_managed_accounts`, `switch_account`
-- Campaigns / ad groups / text ads / keywords — list, get, create, update, pause, resume, remove
-- Negative keywords — set-whole-list at the campaign level (the v5 API does not expose them any other way)
-- Retargeting lists — list, create, update, remove
-- Account-level stats overview (`get_account_overview`) and `list_conversions`
+### Coverage at a glance
 
-Known limitations in v0.1.0:
+| Surface | Tools | Status |
+|---|---:|---|
+| Accounts (`current_account`, `list_managed_accounts`, `switch_account`) | 3 | ✅ verified |
+| Campaigns — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
+| Ad groups — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
+| Text ads — list/get/create/update/pause/resume/remove | 7 | ✅ verified |
+| Keywords — list/get/add/update/pause/resume/remove | 7 | ✅ verified |
+| Negative keywords — `set_campaign_negative_keywords` | 1 | ✅ verified |
+| Retargeting lists — list/create/update/remove | 4 | ✅ verified |
+| Conversions — `list_conversions` | 1 | ✅ verified |
+| Account-level stats — `get_account_overview` | 1 | ✅ verified |
+| Dynamic ads — `create_dynamic_ad` | 1 | ⚠️ unverified (wire shape not confirmed) |
+| Per-entity stats — `get_conversion_stats` etc. | 1 | ⏳ deferred to v0.2 (async report API) |
+| Fénix /v1 — user info, shop items, shopping campaigns + stats | 6 | 🔵 wired, live smoke pending fresh refresh JWT |
+
+### Tool surface
+
+```mermaid
+graph TB
+    subgraph Drak["Drak v5 JSON-RPC — verified end-to-end 2026-05-01"]
+        ACC["<b>Account</b><br/>current · list · switch"]:::ok
+        CMP["<b>Campaign</b><br/>list · get · create · update<br/>pause · resume · remove"]:::ok
+        GRP["<b>Ad Group</b><br/>list · get · create · update<br/>pause · resume · remove"]:::ok
+        AD["<b>Text Ad</b><br/>list · get · create · update<br/>pause · resume · remove"]:::ok
+        KW["<b>Keyword</b><br/>list · get · add · update<br/>pause · resume · remove"]:::ok
+        NK["<b>Negative kw</b><br/>set-whole-list"]:::ok
+        RT["<b>Retargeting List</b><br/>list · create · update · remove"]:::ok
+        OVW["<b>Account stats</b><br/>account_overview · list_conversions"]:::ok
+        DYN["<b>Dynamic Ad</b><br/>create only"]:::warn
+        PER["<b>Per-entity stats</b><br/>deferred to v0.2"]:::pending
+
+        ACC --> CMP
+        CMP --> GRP
+        GRP --> AD
+        GRP --> KW
+        CMP --> NK
+        CMP --> RT
+        ACC --> OVW
+    end
+
+    subgraph Fenix["Sklik /v1 REST — Nákupy / Fénix (OAuth2)"]
+        WHO["<b>get_fenix_user_info</b><br/>/user/me sanity check"]:::wired
+        SHO["<b>Shop items</b><br/>list · update_bid"]:::wired
+        SCA["<b>Shopping campaigns</b><br/>list"]:::wired
+        SST["<b>Shopping stats</b><br/>aggregated by day/week/…"]:::wired
+    end
+
+    classDef ok fill:#1a7f37,stroke:#1a7f37,color:#fff
+    classDef warn fill:#9a6700,stroke:#9a6700,color:#fff
+    classDef pending fill:#6e7781,stroke:#6e7781,color:#fff
+    classDef wired fill:#0969da,stroke:#0969da,color:#fff
+```
+
+Legend: 🟢 verified live · 🟡 unverified · ⚪ deferred to v0.2 · 🔵 wired against published OpenAPI spec
+
+### Known limitations in v0.1.0
+
 - **Per-entity stats** (campaigns/groups/ads/keywords) and **`get_conversion_stats`** — Sklik exposes these via an async report-query model (`<entity>.createReport` → poll → `<entity>.readReport`) that we haven't implemented yet. Tracked for v0.2.
 - **`create_dynamic_ad`** — wire shape not fully confirmed; treat as experimental. Tracked for v0.1.x.
-- **Fénix (Seznam Nákupy)** — wired against the unified `/v1/` API with proper OAuth2 refresh→access token exchange and the real `/nakupy/` endpoints (per the published OpenAPI spec). Live end-to-end smoke against a fresh refresh token is still pending.
+- **Fénix (Seznam Nákupy)** — wired against the unified `/v1/` API with proper OAuth2 refresh→access token exchange and the real `/nakupy/` endpoints (per the published OpenAPI spec). Use `get_fenix_user_info` first to confirm your refresh token works; live end-to-end smoke against a fresh refresh token is still pending.
 
 See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.
 

@@ -2,7 +2,7 @@
 
 All tools take their arguments as keyword args via the MCP protocol. Money fields are always in Kč (the Sklik API uses haléře internally — tools convert for you).
 
-This catalogue lists every tool registered by the server (40 Drak tools + 4 Fénix tools = 44 total when `SKLIK_FENIX_TOKEN` is set, 40 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
+This catalogue lists every tool registered by the server (40 Drak tools + 5 Fénix tools = 45 total when `SKLIK_FENIX_TOKEN` is set, 40 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
 
 ## Verification status (2026-05-01)
 
@@ -204,7 +204,7 @@ Returns: `{"conversions": [...]}`
 ### `get_conversion_stats(conversion_id, date_from, date_to)` — UNVERIFIED
 Likely uses Sklik's async report flow (not implemented yet). Will return raw response or 404 until v0.2.
 
-## Fénix / Sklik Nákupy (4) — wired against unified `/v1/` API
+## Fénix / Sklik Nákupy (5) — wired against unified `/v1/` API
 
 The Fénix tools talk to the unified `/v1/` REST API (OpenAPI spec at
 `https://api.sklik.cz/v1/openapi.json`). They are only registered when
@@ -225,7 +225,12 @@ helper (tracked for v0.1.x).
 
 Live end-to-end verification is still pending — the OAuth flow and
 endpoint paths follow the official OpenAPI spec exactly, but we
-haven't smoked the round-trip with a fresh refresh token yet.
+haven't smoked the round-trip with a fresh refresh token yet. Use
+`get_fenix_user_info` first to confirm your refresh token is valid
+before reaching for the Nákupy-specific tools.
+
+### `get_fenix_user_info()`
+Returns the currently authorized `/v1/` user (`userId`, `userName`, `actor`, `scope`). Sanity-check helper for verifying that `SKLIK_FENIX_TOKEN` is set, valid, and has the scopes you expect — useful before calling any Nákupy-specific tool. Calls `GET /v1/user/me`.
 
 ### `list_shop_items(premise_id, item_id?, paired?, product_category_id?, limit=100, offset=0)`
 List shop items (rows from your XML feed) for a Nákupy premise.

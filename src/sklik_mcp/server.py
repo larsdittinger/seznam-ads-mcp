@@ -24,6 +24,7 @@ def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None) 
         retargeting,
         stats,
     )
+    from sklik_mcp.tools.fenix import account as fenix_account
     from sklik_mcp.tools.fenix import product_groups, shopping_stats
 
     for drak_module in (
@@ -41,7 +42,7 @@ def _register_all(mcp: FastMCP, client: SklikClient, fenix: FenixClient | None) 
     # Fénix tools only registered when SKLIK_FENIX_TOKEN is set — otherwise
     # they'd all fail with the same auth error and confuse users about why.
     if fenix is not None:
-        for fenix_module in (product_groups, shopping_stats):
+        for fenix_module in (fenix_account, product_groups, shopping_stats):
             fenix_module.register(mcp, client, fenix)
 
 
