@@ -2,7 +2,7 @@
 
 All tools take their arguments as keyword args via the MCP protocol. Money fields are always in Kč (the Sklik API uses haléře internally — tools convert for you).
 
-This catalogue lists every tool registered by the server (39 Drak tools + 5 Fénix tools = 44 total when `SKLIK_FENIX_TOKEN` is set, 39 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
+This catalogue lists every tool registered by the server (43 Drak tools + 5 Fénix tools = 48 total when `SKLIK_FENIX_TOKEN` is set, 43 otherwise). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
 
 ## Verification status (2026-05-01)
 
@@ -21,10 +21,10 @@ the JSON API.
 | Ads — dynamic / DSA | **not exposed by Drak v5** | Probed exhaustively on 2026-05-01: `ads.create` rejects `type`/`creativeType`, all alternative methods (`ads.createDynamic`, `dsa.create`, `dynamicAds.create`, `groups.createDynamic`) return 404, `groups.update` rejects DSA-target fields. Sklik's web UI uses a non-public route. The MCP intentionally ships only `create_text_ad`. |
 | Keywords | **VERIFIED end-to-end** | full CRUD confirmed live |
 | Negative keywords | **VERIFIED** | redesigned: campaign-level only, set-whole-list via `campaigns.update`. Read API not exposed in v5 |
-| Stats — `get_account_overview` | **VERIFIED** | live-tested |
-| Stats — per-entity | **NOT IMPLEMENTED** | Sklik uses async report-query (`<entity>.createReport` → poll → `<entity>.readReport`); tracked for v0.2 |
+| Stats — `get_account_overview` | **VERIFIED** | live-tested; `splitByConversions=true` exposes per-conversion-action breakdowns |
+| Stats — per-entity (campaigns / groups / ads / keywords) | **VERIFIED end-to-end** | `<entity>.createReport` → `<entity>.readReport` flow live-tested 2026-05-01; gotcha: `allowEmptyStatistics` defaults to `false` and silently filters quiet entities — surfaced in tools as `include_zeros` |
 | Retargeting | **VERIFIED end-to-end** | full CRUD confirmed live (test list created and removed) |
-| Conversions | partially verified | `list_conversions` works; `get_conversion_stats` uses the async report flow (NOT IMPLEMENTED, tracked for v0.2) |
+| Conversions | **VERIFIED** | `list_conversions` + `get_conversion_stats` (rides on `client.stats(splitByConversions: true)` since `conversions.stats` doesn't exist in Drak v5) |
 | Fénix / Nákupy | **OAuth + 4 endpoints verified live, 3 blocked by token scope** | OAuth2 refresh→access flow, `/v1/user/me`, `/v1/user/me/credit`, `/v1/sklik/reports/`, `/v1/nakupy/feeds/`, `/v1/nakupy/campaigns/` — all verified live on 2026-05-01 against premise 230104. `/v1/nakupy/shop-items/`, `/v1/nakupy/products/`, `/v1/nakupy/categories/`, `/v1/nakupy/statistics/aggregated` returned 403 with our test token (Sklik gates these behind a granular resource scope; implementation matches OpenAPI spec exactly). |
 
 ### Conventions discovered while wiring against live API
@@ -155,26 +155,42 @@ real shape:
 Replaces the entire negative-keyword list. Pass `[]` to clear. `campaign_type` must be one of `context|fulltext|product|simple`.
 Returns: `{"updated": true, "count": int}`
 
-## Stats (1)
+## Stats (5)
 
-The previous `get_stats(entity, entity_ids, ...)` tool was REMOVED in this iteration because Sklik does not provide synchronous per-entity stats. Per-entity reports use an asynchronous query model that needs proper implementation:
+Three flavours, all verified live 2026-05-01:
 
-```
-<entity>.createReport(filter)  → returns reportId
-stats.status(reportId)         → poll until ready
-<entity>.readReport(reportId)  → fetch the data
-```
+- **`get_account_overview`** — synchronous, no entity breakdown. Wraps `client.stats`.
+- **`get_campaign_stats` / `get_ad_group_stats` / `get_ad_stats` / `get_keyword_stats`** — per-entity breakdowns via Drak v5's `<entity>.createReport` + `<entity>.readReport` flow. The two-call shape looks async but `readReport` returns immediately — there is no polling step.
 
-This is a sizeable feature and is **tracked for v0.2**.
+**Granularity** (all five tools): one of `total | daily | weekly | monthly | quarterly | yearly`. `hourly` is *not* supported (Drak v5 returns "Bad arguments").
 
-### `get_account_overview(date_from, date_to, granularity="total")`
-Account-level performance rollup. Synchronous, returns immediately.
-- `granularity` ∈ `hourly|daily|weekly|monthly|total`
-- Dates are ISO `YYYY-MM-DD` (inclusive)
+**Money fields** are returned in haléře (1 Kč = 100 haléřů). Each money column gets a mirror with `_kc` suffix in Kč. Example: `totalMoney: 25171` ↔ `totalMoney_kc: 251.71`.
 
-Returns: `{"report": [{"date": str, "impressions": int, "clicks": int, "ctr": float, "cpc": int, "price": int, "price_kc": float, ...}]}`
+**Date in stats rows** is a Sklik integer:
+- `total`/`daily`: `YYYYMMDD` (e.g. `20251101`)
+- `monthly`: `YYYYMM` (e.g. `202511`)
+- `quarterly`/`yearly`: `YYYY` / `YYYYQ`
 
-The `report` array has 1 row for `total`, N rows for `daily`, etc. Money field is `price` (haléře); `price_kc` is added in Kč.
+**`include_zeros`** (per-entity tools only): default `False` — Sklik filters out entities with zero impressions in the window (`allowEmptyStatistics: false` server-side). Set to `True` to surface every entity in the filter.
+
+### `get_account_overview(date_from, date_to, granularity="total", split_by_conversions=False)`
+Account-level rollup. When `split_by_conversions=True`, each row carries a `conversionList[]` with one entry per defined conversion (id, conversions, conversionValue, conversionAvgPrice, …) — including `_kc` mirrors.
+
+Returns: `{"report": [{"date": str, "impressions": int, "clicks": int, "ctr": float, "cpc": int, "cpc_kc": float, "price": int, "price_kc": float, "conversionList"?: [...], ...}]}`
+
+### `get_campaign_stats(date_from, date_to, campaign_ids?, granularity="total", include_zeros=False, limit=100, offset=0)`
+Per-campaign stats. Pass `campaign_ids` to limit, omit for the whole account.
+
+Returns: `{"report": [{"id": int, "name": str, "status": str, "stats": [{"date": int, "clicks": int, "impressions": int, "ctr": float, "avgCpc": int, "avgCpc_kc": float, "totalMoney": int, "totalMoney_kc": float, "conversions": int, "conversionValue": int, "conversionValue_kc": float, "transactions": int, "avgPos": float}]}], "total": int}`
+
+### `get_ad_group_stats(date_from, date_to, group_ids?, campaign_id?, granularity="total", include_zeros=False, limit=100, offset=0)`
+Per-group stats. `campaign_id` and `group_ids` are AND'd. Rows include `campaign: {id, name}` for navigation.
+
+### `get_ad_stats(date_from, date_to, ad_ids?, group_id?, campaign_id?, granularity="total", include_zeros=False, limit=100, offset=0)`
+Per-ad stats. Banner ads return `headline1: null` (no text headline to show); use the `id`+`group`+`campaign` fields to identify them.
+
+### `get_keyword_stats(date_from, date_to, keyword_ids?, group_id?, campaign_id?, granularity="total", include_zeros=False, limit=100, offset=0)`
+Per-keyword stats. With many keywords most will have zero impressions — default `include_zeros=False` keeps the response compact. Set to `True` to answer "did this keyword fire at all?" questions.
 
 ## Retargeting (4) — VERIFIED end-to-end 2026-05-01
 
@@ -195,51 +211,14 @@ Returns: `{"removed": true, "retargeting_id": int}`. On the wire Sklik takes a b
 ## Conversions (2)
 
 ### `list_conversions()`  — VERIFIED
-Returns: `{"conversions": [...]}`
+Returns: `{"conversions": [{"id": int, "name": str, ...}]}`
 
-### `get_conversion_stats(conversion_id, date_from, date_to)` — UNVERIFIED
-Likely uses Sklik's async report flow (not implemented yet). Will return raw response or 404 until v0.2.
+### `get_conversion_stats(conversion_id, date_from, date_to, granularity="total")` — VERIFIED
+Drak v5 has **no** `conversions.stats` / `conversions.readReport` / `conversions.createReport` method (all return non-JSON 404). Instead, this tool calls `client.stats(splitByConversions: true)` and pulls the matching `conversionList` entry per period.
 
-## Per-entity stats (deferred to v0.2)
+Returns: `{"report": [{"date": str, "id": int, "conversions": int, "conversionValue": int, "conversionValue_kc": float, "conversionAvgPrice": int, "conversionAvgPrice_kc": float, "transactions": int, ...}]}`
 
-Drak v5 *does* expose `<entity>.createReport` → `<entity>.readReport`
-on `campaigns`, `groups`, `ads`, `keywords`, `retargeting`. Wire shape
-verified live on 2026-05-01:
-
-```
-campaigns.createReport(
-    auth,
-    {dateFrom, dateTo, [ids]},                      # restrictionFilter
-    {[includeCurrentDayStats]}                       # displayOptions
-) -> {reportId, totalCount}
-
-campaigns.readReport(
-    auth,
-    reportId,
-    {offset, limit, displayColumns: [...]}           # displayOptions
-) -> {report: [rows]}
-```
-
-Available `displayColumns` (subset, all entities accept similar): `id`,
-`name`, `status`, `clicks`, `impressions`, `ctr`, `avgCpc`, `avgPos`,
-`conversions`, `conversionValue`, `totalMoney`, `clickMoney`,
-`impressionMoney`, `transactions`, `pno`, `actualClicks`, `totalClicks`,
-`missImpressions`, `avgCpt`, `budget.dayBudget`, `budget.totalBudget`,
-`exhaustedBudget`. **No `granularity` field** — Drak v5 reports always
-roll up the whole date range into one row per entity.
-
-**Why we don't ship these tools yet:** every `readReport` call against
-the Ethia test account returned `report: []` even with `totalCount=3`
-matched and a 60s wait — including for the active Nákupy:ethia.cz
-campaign over a 6-month window. The Sklik web UI has clearly migrated
-off Drak v5 reports (it now hits `https://www.sklik.cz/api/v1/campaigns`
-with `from=&to=` query params and a v4 GraphQL endpoint, not the public
-Drak API), so the Drak v5 report engine appears to either be deprecated
-or to silently exclude entities below some threshold we haven't
-identified. Shipping tools that "look" right but always return zero
-data would be a footgun. We need a known-good account or fresh Sklik
-guidance before promoting these to a public surface — tracked as
-Task #14.
+Empty `report` if the conversion never fired in the window.
 
 ## Fénix / Sklik Nákupy (5) — wired against unified `/v1/` API
 
