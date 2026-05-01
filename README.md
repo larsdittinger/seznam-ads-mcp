@@ -1,7 +1,7 @@
 # Sklik MCP
 
 [![PyPI version](https://badge.fury.io/py/sklik-mcp.svg)](https://pypi.org/project/sklik-mcp/)
-[![CI](https://github.com/rawbark/seznam-ads-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/rawbark/seznam-ads-mcp/actions)
+[![CI](https://github.com/larsdittinger/seznam-ads-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/larsdittinger/seznam-ads-mcp/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **MCP server pro Seznam Sklik.** Spravujte kampaně, sestavy, klíčová slova a výkon přes Claude (nebo jakéhokoliv MCP klienta).
@@ -34,7 +34,7 @@ uvx sklik-mcp
 uv tool install sklik-mcp
 
 # From source
-git clone https://github.com/rawbark/seznam-ads-mcp
+git clone https://github.com/larsdittinger/seznam-ads-mcp
 cd seznam-ads-mcp
 uv sync
 uv run sklik-mcp
@@ -97,7 +97,7 @@ See [docs/tools.md](docs/tools.md) for the full tool catalogue.
 ## Development
 
 ```bash
-git clone https://github.com/rawbark/seznam-ads-mcp
+git clone https://github.com/larsdittinger/seznam-ads-mcp
 cd seznam-ads-mcp
 uv sync --extra dev
 uv run pytest

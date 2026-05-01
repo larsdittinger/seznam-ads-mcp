@@ -33,7 +33,7 @@ sklik-mcp
 ### From source
 
 ```bash
-git clone https://github.com/rawbark/seznam-ads-mcp
+git clone https://github.com/larsdittinger/seznam-ads-mcp
 cd seznam-ads-mcp
 uv sync
 uv run sklik-mcp

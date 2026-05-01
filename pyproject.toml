@@ -38,8 +38,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rawbark/seznam-ads-mcp"
-Issues = "https://github.com/rawbark/seznam-ads-mcp/issues"
+Homepage = "https://github.com/larsdittinger/seznam-ads-mcp"
+Issues = "https://github.com/larsdittinger/seznam-ads-mcp/issues"
 
 [build-system]
 requires = ["hatchling"]
