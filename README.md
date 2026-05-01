@@ -107,7 +107,7 @@ uv run mypy
 
 ## Status
 
-**Alpha (v0.1.0)** — 46 tools, end-to-end verified against the live Sklik API on **2026-05-01**.
+**Alpha (v0.1.0)** — 45 tools, end-to-end verified against the live Sklik API on **2026-05-01**.
 
 End-to-end test on a real account: created a fulltext campaign with ad
 group, text ad, three keywords, and a retargeting list; paused/resumed
