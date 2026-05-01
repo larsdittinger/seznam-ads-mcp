@@ -103,7 +103,8 @@ def register(mcp: FastMCP, client: SklikClient) -> None:
         """
         body = [_build_keyword_create(group_id, kw) for kw in keywords]
         resp = client.call("keywords.create", body)
-        return {"keyword_ids": resp.get("keywordIds") or []}
+        # Sklik returns the new IDs under `positiveKeywordIds` (not `keywordIds`).
+        return {"keyword_ids": resp.get("positiveKeywordIds") or []}
 
     @mcp.tool()
     @with_sklik_error_handling

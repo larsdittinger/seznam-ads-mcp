@@ -70,7 +70,8 @@ async def test_get_keyword_filters_by_id():
 
 
 async def test_add_keywords_sends_batch_with_match_types():
-    mcp, client = _setup({"status": 200, "keywordIds": [1, 2]})
+    # Sklik's create response carries the new IDs under `positiveKeywordIds`.
+    mcp, client = _setup({"status": 200, "positiveKeywordIds": [1, 2]})
     out = await _invoke(
         mcp,
         "add_keywords",
@@ -91,7 +92,7 @@ async def test_add_keywords_sends_batch_with_match_types():
 
 
 async def test_add_keywords_uses_correct_method():
-    mcp, client = _setup({"status": 200, "keywordIds": [42]})
+    mcp, client = _setup({"status": 200, "positiveKeywordIds": [42]})
     await _invoke(
         mcp,
         "add_keywords",
