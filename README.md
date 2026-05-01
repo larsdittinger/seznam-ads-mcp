@@ -101,14 +101,24 @@ uv run mypy
 
 ## Status
 
-**Alpha (v0.1.0)** — first integration smoke against live Sklik API on **2026-04-30**.
+**Alpha (v0.1.0)** — verified end-to-end against the live Sklik API on **2026-05-01**.
 
-What's verified working: login, account selection, listing campaigns / ad groups / ads / keywords, account-level stats overview, retargeting lists, listing conversions.
+End-to-end test on a real account: created a fulltext campaign with ad
+group, text ad, three keywords, and a retargeting list; paused/resumed
+each; set negative keywords; removed everything; account ended where it
+started.
 
-What's known broken or missing in v0.1.0:
-- **Per-entity stats** (campaigns/groups/ads/keywords) — Sklik uses an async report-query model we haven't implemented. Tracked for v0.2.
-- **Negative keywords** — guessed method names returned 404. Real ones TBD. Tracked for v0.1.1.
-- **Fénix (Seznam Nákupy)** — uses OAuth2 token exchange, not direct Bearer. Tracked for v0.1.2.
+Verified working (full CRUD round-trips):
+- Accounts — `current_account`, `list_managed_accounts`, `switch_account`
+- Campaigns / ad groups / text ads / keywords — list, get, create, update, pause, resume, remove
+- Negative keywords — set-whole-list at the campaign level (the v5 API does not expose them any other way)
+- Retargeting lists — list, create, update, remove
+- Account-level stats overview (`get_account_overview`) and `list_conversions`
+
+Known limitations in v0.1.0:
+- **Per-entity stats** (campaigns/groups/ads/keywords) and **`get_conversion_stats`** — Sklik exposes these via an async report-query model (`<entity>.createReport` → poll → `<entity>.readReport`) that we haven't implemented yet. Tracked for v0.2.
+- **`create_dynamic_ad`** — wire shape not fully confirmed; treat as experimental. Tracked for v0.1.x.
+- **Fénix (Seznam Nákupy)** — uses an OAuth2 refresh→access token exchange, not a direct Bearer header. Tracked for v0.1.2.
 
 See [docs/tools.md](docs/tools.md) for the full per-tool verification matrix.
 

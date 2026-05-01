@@ -2,23 +2,49 @@
 
 All tools take their arguments as keyword args via the MCP protocol. Money fields are always in Kč (the Sklik API uses haléře internally — tools convert for you).
 
-This catalogue lists every tool registered by the server (45 total, grouped by module). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
+This catalogue lists every tool registered by the server (43 total, grouped by module). Signatures match the registered FastMCP tools in `src/sklik_mcp/tools/`.
 
-## Verification status (2026-04-30)
+## Verification status (2026-05-01)
+
+End-to-end test on the live API: created a test fulltext campaign with
+ad group, text ad, three keywords, and a retargeting list; updated /
+paused / resumed each; set negative keywords; removed everything.
+Sklik soft-deletes (sets `deleted: true`) — there is no hard-remove via
+the JSON API.
 
 | Module | Status | Notes |
 |---|---|---|
-| Accounts | **VERIFIED** | live-tested: login, current_account, list_managed_accounts |
-| Campaigns | **VERIFIED** read paths | list_campaigns confirmed live; write paths not yet exercised |
-| Ad groups | **VERIFIED** read paths | list_ad_groups confirmed live; response field is `groups` |
-| Ads | likely correct | list_ads returned 200 with empty list (test account has no text ads); write paths not exercised |
-| Keywords | likely correct | list_keywords returned 200 |
-| Negative keywords | **UNVERIFIED** | All three method names (`campaigns.getNegativeKeywords` etc.) returned 404. Real method names TBD. |
+| Accounts | **VERIFIED end-to-end** | current_account, list_managed_accounts, switch_account |
+| Campaigns | **VERIFIED end-to-end** | list/get/create/update/pause/resume/remove all confirmed live |
+| Ad groups | **VERIFIED end-to-end** | full CRUD confirmed live |
+| Ads | **VERIFIED end-to-end** | text ad CRUD confirmed live |
+| Ads — dynamic | **UNVERIFIED** | `create_dynamic_ad` wire shape not fully discovered yet (tracked for v0.1.x) |
+| Keywords | **VERIFIED end-to-end** | full CRUD confirmed live |
+| Negative keywords | **VERIFIED** | redesigned: campaign-level only, set-whole-list via `campaigns.update`. Read API not exposed in v5 |
 | Stats — `get_account_overview` | **VERIFIED** | live-tested |
 | Stats — per-entity | **NOT IMPLEMENTED** | Sklik uses async report-query (`<entity>.createReport` → poll → `<entity>.readReport`); tracked for v0.2 |
-| Retargeting | **VERIFIED** | namespace fixed to `retargeting.lists.*` |
-| Conversions | partially verified | `list_conversions` works; `get_conversion_stats` likely uses async report flow (UNVERIFIED) |
+| Retargeting | **VERIFIED end-to-end** | full CRUD confirmed live (test list created and removed) |
+| Conversions | partially verified | `list_conversions` works; `get_conversion_stats` uses the async report flow (NOT IMPLEMENTED, tracked for v0.2) |
 | Fénix | **NOT WORKING** | Fénix uses OAuth2 (refresh→access token), our client sends raw Bearer. Tracked for v0.1.2. |
+
+### Conventions discovered while wiring against live API
+
+- *List/get response columns:* Sklik's default response carries only the bare
+  minimum. All `list_*` and `get_*` tools now request a sensible default
+  `displayColumns` set so callers see deletes, bid/budget, dates, finalUrl,
+  parent IDs, etc.
+- *Soft-deletes:* Sklik never hard-removes; `*.remove` flips `deleted: true`.
+  All `list_*` tools hide deleted rows by default; pass `include_deleted=True`
+  to surface them.
+- *Status values:* On the wire, Sklik only knows `active` / `suspend`. The
+  public-facing tool API accepts the friendlier `active` / `paused` and maps.
+- *Filter struct:* `restrictionFilter` only accepts `ids` and (where
+  applicable) nested `campaign: {ids: [...]}` / `group: {ids: [...]}`. Status
+  / name filters are applied client-side after fetching the page.
+- *Update calls:* `campaigns.update` insists on receiving `type` even on a
+  partial update; the tool auto-fetches it. Bid field on groups/keywords is
+  `cpc` (not `maxCpc`). Keyword-text field is `name` (not `keyword`). Ad's
+  first description field is `description` (not `description1`).
 
 ## Accounts (3)
 
@@ -35,34 +61,38 @@ Returns: `{"active_user_id": int | null, "token_owner_user_id": int | null}`
 
 ## Campaigns (7)
 
-### `list_campaigns(status_filter?, name_contains?, limit=100, offset=0)`
-List campaigns with optional filters. `status_filter` is one of `active|paused|removed`.
-Returns: `{"campaigns": [...], "total": int}` — note: Sklik does not return a `totalCount` field, so `total` is always `0` until v0.2 fixes this.
+### `list_campaigns(status_filter?, name_contains?, include_deleted=False, limit=100, offset=0)`
+List campaigns with optional client-side filters. `status_filter` is one of `active|paused`. Soft-deleted campaigns are hidden by default.
+Returns: `{"campaigns": [...], "total": int}` (`total` is the post-filter count of returned items).
 
 ### `get_campaign(campaign_id: int)`
-Returns: `{"campaign": {...} | null}`
+Returns: `{"campaign": {...} | null}`. Surfaces id, name, type, status, deleted, deleteDate, createDate, budget.dayBudget, startDate, endDate.
 
-### `create_campaign(name, daily_budget_kc, currency="CZK", start_date?, end_date?)`
+### `create_campaign(name, daily_budget_kc, campaign_type, start_date?, end_date?)`
+`campaign_type` is one of `fulltext|context|product|video|simple|zbozi` — Sklik requires it.
 Returns: `{"campaign_id": int}`
 
 ### `update_campaign(campaign_id, name?, daily_budget_kc?, status?)`
+The tool auto-fetches the campaign's `type` (Sklik requires it on every update payload).
 Returns: `{"updated": true}`
 
 ### `pause_campaign(campaign_id)` / `resume_campaign(campaign_id)`
+Both auto-fetch type and map status to Sklik's wire `suspend` / `active`.
 Returns: `{"paused": true, ...}` or `{"resumed": true, ...}`
 
 ### `remove_campaign(campaign_id)`
-Returns: `{"removed": true, "campaign_id": int}`
+Returns: `{"removed": true, "campaign_id": int}`. Sklik soft-deletes (sets `deleted: true`); the row stays in `list_campaigns` only when `include_deleted=True`.
 
 ## Ad groups (7)
 
-### `list_ad_groups(campaign_id?, status_filter?, name_contains?, limit=100, offset=0)`
-Returns: `{"groups": [...], "total": int}`
+### `list_ad_groups(campaign_id?, status_filter?, name_contains?, include_deleted=False, limit=100, offset=0)`
+Returns: `{"groups": [...], "total": int}`. Surfaces id, name, status, maxCpc, deleted, parent campaign id/name.
 
 ### `get_ad_group(group_id)`
 Returns: `{"group": {...} | null}`
 
 ### `create_ad_group(campaign_id, name, max_cpc_kc)`
+Bid is sent on the wire as `cpc` (not `maxCpc`).
 Returns: `{"group_id": int}`
 
 ### `update_ad_group(group_id, name?, max_cpc_kc?, status?)`
@@ -72,16 +102,18 @@ Returns: `{"updated": true}`
 
 ## Ads (8)
 
-### `list_ads(group_id?, status?, limit=100, offset=0)`
-Returns: `{"ads": [...], "total": int}`
+### `list_ads(group_id?, status?, include_deleted=False, limit=100, offset=0)`
+Returns: `{"ads": [...], "total": int}`. Surfaces id, adType, status, headlines, description(s), finalUrl, deleted, parent group/campaign refs.
 
 ### `get_ad(ad_id)`
 Returns: `{"ad": {...} | null}`
 
 ### `create_text_ad(group_id, headline1, headline2, description1, final_url, headline3?, description2?)`
+On the wire `description1` is sent as Sklik's `description` field (singular). No `type` field is allowed — Sklik infers ad type from group/fields.
 Returns: `{"ad_id": int}`
 
-### `create_dynamic_ad(group_id, final_url, description1?)`
+### `create_dynamic_ad(group_id, final_url, description1?)` — UNVERIFIED
+Sklik's exact wire shape for dynamic ads is not yet confirmed. Treat as experimental until probed end-to-end. Tracked for v0.1.x.
 Returns: `{"ad_id": int}`
 
 ### `update_ad(ad_id, headline1?, headline2?, headline3?, description1?, description2?, final_url?, status?)`
@@ -91,28 +123,41 @@ Returns: `{"updated": true}`
 
 ## Keywords (7)
 
-### `list_keywords(group_id?, status?, limit=100, offset=0)`
-Returns: `{"keywords": [...], "total": int}`
+### `list_keywords(group_id?, status?, include_deleted=False, limit=100, offset=0)`
+Returns: `{"keywords": [...], "total": int}`. Surfaces id, name, matchType, status, cpc, deleted, group/campaign refs.
 
 ### `get_keyword(keyword_id)`
 Returns: `{"keyword": {...} | null}`
 
 ### `add_keywords(group_id, keywords: [{keyword, match_type, max_cpc_kc?}])`
-Batch add. `match_type` is one of `broad|phrase|exact` (mapped internally to Sklik's `broad|phraseMatch|exactMatch`).
-Returns: `{"keyword_ids": [int, ...]}`
+Batch add. `match_type` is one of `broad|phrase|exact` (sent verbatim on the wire). On the wire Sklik's keyword-text field is `name` (not `keyword`); the tool maps. The bid field is `cpc` in Kč (converted to haléře).
+Returns: `{"keyword_ids": [int, ...]}` — read from the response's `positiveKeywordIds` field.
 
 ### `update_keyword(keyword_id, max_cpc_kc?, status?)`
 Returns: `{"updated": true}`
 
 ### `pause_keyword(keyword_id)` / `resume_keyword(keyword_id)` / `remove_keyword(keyword_id)`
 
-## Negative keywords (3) — UNVERIFIED
+## Negative keywords (1) — VERIFIED, but with v5 caveats
 
-These tools were implemented against guessed method names. **Live testing on 2026-04-30 returned 404 for `campaigns.getNegativeKeywords`, `campaigns.negativeKeywords.list`, and similar.** The real Sklik method names need to be discovered (likely under a different namespace, possibly attached via `campaigns.update`/`groups.update`). Tracked for v0.1.1.
+Sklik v5 has NO separate JSON-RPC namespace for negative keywords — the
+guess methods (`campaigns.getNegativeKeywords` etc.) all return 404. The
+real shape:
 
-### `list_negative_keywords(scope, scope_id)`
-### `add_negative_keywords(scope, scope_id, keywords: list[str])`
-### `remove_negative_keyword(scope, scope_id, negative_keyword_id)`
+- Negatives are a field on the campaign struct: `negativeKeywords`.
+- They are written via `campaigns.update` and replace the whole list at
+  once (no incremental add/remove).
+- Element shape: `{"name": str, "matchType": "negativeBroad" |
+  "negativePhrase" | "negativeExact"}` — note the prefix vs regular
+  keywords' bare match types.
+- Available only for campaign types `context`, `fulltext`, `product`,
+  `simple` — NOT `zbozi`. For Shopping, use product groups (Fénix).
+- Reading them back is not exposed by the v5 JSON API.
+- Group-scoped negatives are not supported in v5.
+
+### `set_campaign_negative_keywords(campaign_id, campaign_type, keywords: [{name, match_type}])`
+Replaces the entire negative-keyword list. Pass `[]` to clear. `campaign_type` must be one of `context|fulltext|product|simple`.
+Returns: `{"updated": true, "count": int}`
 
 ## Stats (1)
 
@@ -135,21 +180,21 @@ Returns: `{"report": [{"date": str, "impressions": int, "clicks": int, "ctr": fl
 
 The `report` array has 1 row for `total`, N rows for `daily`, etc. Money field is `price` (haléře); `price_kc` is added in Kč.
 
-## Retargeting (4) — VERIFIED 2026-04-30
+## Retargeting (4) — VERIFIED end-to-end 2026-05-01
 
-Method namespace is `retargeting.lists.*`. Response field is `lists` (not `retargetingLists`).
+Method namespace is `retargeting.lists.*`. Each item in the list response carries `listId` (not `id`).
 
 ### `list_retargeting_lists()`
-Returns: `{"retargeting_lists": [...]}`
+Returns: `{"retargeting_lists": [{"listId": int, "name": str, "status": str, "deleted": bool}]}`
 
-### `create_retargeting_list(name, membership_lifespan_days=30)`
-Returns: `{"retargeting_id": int}`
+### `create_retargeting_list(name, membership_days=30, use_historic_data=False, take_all_users=True)`
+Returns: `{"retargeting_id": int}`. On the wire Sklik wraps everything in an `attributes` struct.
 
-### `update_retargeting_list(retargeting_id, name?, membership_lifespan_days?)`
-Returns: `{"updated": true}`
+### `update_retargeting_list(retargeting_id, name?, membership_days?)`
+Returns: `{"updated": true}`. Element key on the wire is `listId` (not `id`); editable fields nest under `attributes`.
 
 ### `remove_retargeting_list(retargeting_id)`
-Returns: `{"removed": true, "retargeting_id": int}`
+Returns: `{"removed": true, "retargeting_id": int}`. On the wire Sklik takes a bare `[id, ...]` list (not `{"id": ...}`).
 
 ## Conversions (2)
 
