@@ -25,7 +25,7 @@ the JSON API.
 | Stats — per-entity | **NOT IMPLEMENTED** | Sklik uses async report-query (`<entity>.createReport` → poll → `<entity>.readReport`); tracked for v0.2 |
 | Retargeting | **VERIFIED end-to-end** | full CRUD confirmed live (test list created and removed) |
 | Conversions | partially verified | `list_conversions` works; `get_conversion_stats` uses the async report flow (NOT IMPLEMENTED, tracked for v0.2) |
-| Fénix / Nákupy | **OAuth + /user/me verified, Nákupy endpoints wired** | OAuth2 refresh→access flow and `/v1/user/me` round-trip verified live on 2026-05-01. Nákupy-specific endpoints (`/v1/nakupy/...`) wired exactly per the published OpenAPI spec; smoke against a real premise pending. |
+| Fénix / Nákupy | **OAuth + 4 endpoints verified live, 3 blocked by token scope** | OAuth2 refresh→access flow, `/v1/user/me`, `/v1/user/me/credit`, `/v1/sklik/reports/`, `/v1/nakupy/feeds/`, `/v1/nakupy/campaigns/` — all verified live on 2026-05-01 against premise 230104. `/v1/nakupy/shop-items/`, `/v1/nakupy/products/`, `/v1/nakupy/categories/`, `/v1/nakupy/statistics/aggregated` returned 403 with our test token (Sklik gates these behind a granular resource scope; implementation matches OpenAPI spec exactly). |
 
 ### Conventions discovered while wiring against live API
 
@@ -223,12 +223,17 @@ not Drak campaign id. Most calls take a `premise_id`. Discover yours
 through Sklik's Nákupy admin UI; we don't yet expose a "list premises"
 helper (tracked for v0.1.x).
 
-**Live verification status (2026-05-01):** The OAuth refresh→access
-flow and `/v1/user/me` round-trip are verified live. The
-`/nakupy/*` endpoints follow the official OpenAPI spec exactly but
-have not yet been smoked against a real premise — users should
-call `get_fenix_user_info` first to confirm their refresh token, then
-supply a real `premise_id` to exercise the Nákupy tools.
+**Live verification status (2026-05-01):** OAuth2 refresh→access
+exchange, `/user/me`, `/user/me/credit`, `/sklik/reports/`,
+`/nakupy/feeds/` and `/nakupy/campaigns/` all round-tripped successfully
+against premise 230104. The remaining `/nakupy/*` endpoints
+(shop-items, products, categories, statistics/aggregated) returned
+**403 Forbidden** — Sklik gates those behind a granular resource scope
+that has to be granted at refresh-token generation time, even when the
+OAuth `scope` claim already says `r rw rwa`. The implementation matches
+the OpenAPI spec; supply a token with the right resource scope and
+these tools should "just work". Use `get_fenix_user_info` first to see
+which scopes your token holds.
 
 ### `get_fenix_user_info()`
 Returns the currently authorized `/v1/` user (`userId`, `userName`, `actor`, `scope`). Sanity-check helper for verifying that `SKLIK_FENIX_TOKEN` is set, valid, and has the scopes you expect — useful before calling any Nákupy-specific tool. Calls `GET /v1/user/me`.
